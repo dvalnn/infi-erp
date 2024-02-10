@@ -1,30 +1,10 @@
 #![allow(dead_code)]
 mod db;
+mod xml;
 
-use db::ClientOrder;
 use sqlx::{error::BoxDynError, postgres};
 
-use serde_xml_rs::from_str;
-
-#[derive(Debug, serde::Deserialize)]
-struct Dataset {
-    #[serde(rename = "$value")]
-    orders: Vec<db::RawClientOrder>,
-}
-
-async fn parse_xml(data: &str) -> Result<Vec<db::ClientOrder>, BoxDynError> {
-    let file = std::fs::read_to_string(data)?;
-    let dataset: Dataset = from_str(file.as_str())?;
-    let orders = dataset
-        .orders
-        .into_iter()
-        .map(|o| o.try_into())
-        .collect::<Vec<Result<ClientOrder, BoxDynError>>>();
-
-    orders
-        .into_iter()
-        .collect::<Result<Vec<ClientOrder>, BoxDynError>>()
-}
+use crate::xml::parse_xml;
 
 #[tokio::main]
 async fn main() -> Result<(), BoxDynError> {

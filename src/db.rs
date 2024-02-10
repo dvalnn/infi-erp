@@ -1,58 +1,9 @@
 use core::fmt;
 
-use serde::{Deserialize, Serialize};
 use sqlx::{
     error::BoxDynError, postgres::types::PgMoney, prelude::FromRow, query_as,
     PgPool,
 };
-
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
-pub struct RawClientOrder {
-    pub ordernumber: i64,
-    pub clientnameid: String,
-    pub workpiece: String, //TODO: Change to enum if possible
-    pub quantity: i32,
-    pub duedate: i32,
-    pub latepen: String,
-    pub earlypen: String,
-}
-
-impl TryInto<ClientOrder> for RawClientOrder {
-    type Error = BoxDynError;
-    fn try_into(self) -> Result<ClientOrder, Self::Error> {
-        let mut latepen = self.latepen.clone();
-        let mut earlypen = self.earlypen.clone();
-
-        if let Some(index) = self.latepen.find('$') {
-            latepen.remove(index);
-        }
-        if let Some(index) = self.earlypen.find('$') {
-            earlypen.remove(index);
-        }
-
-        if let Some(index) = latepen.find('.') {
-            latepen.remove(index);
-        }
-        if let Some(index) = earlypen.find('.') {
-            earlypen.remove(index);
-        }
-
-        let latepen_int = latepen.parse::<i64>().expect("should be a number");
-        let latepen = PgMoney::from(latepen_int);
-        let earlypen_int = earlypen.parse::<i64>().expect("should be a number");
-        let earlypen = PgMoney::from(earlypen_int);
-
-        Ok(ClientOrder {
-            ordernumber: self.ordernumber,
-            clientnameid: self.clientnameid,
-            workpiece: self.workpiece,
-            quantity: self.quantity,
-            duedate: self.duedate,
-            latepen,
-            earlypen,
-        })
-    }
-}
 
 #[derive(Debug, PartialEq, Eq, FromRow)]
 pub struct ClientOrder {
