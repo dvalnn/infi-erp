@@ -1,9 +1,10 @@
-CREATE TABLE client_orders (
+CREATE TABLE IF NOT EXISTS client_orders (
+  id BIGSERIAL NOT NULL PRIMARY KEY,
   ClientNameId VARCHAR NOT NULL,
-  OrderNumber INT,
-  WorkPiece VARCHAR,
-  Quantity INT,
-  DueDate INT,
-  LatePen MONEY,
-  EarlyPen MONEY
+  OrderNumber INT NOT NULL,
+  WorkPiece VARCHAR NOT NULL,
+  Quantity INT NOT NULL,
+  DueDate INT NOT NULL,
+  LatePen MONEY NOT NULL,
+  EarlyPen MONEY NOT NULL
 );
