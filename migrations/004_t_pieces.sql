@@ -1,6 +1,9 @@
+-- TODO: Rethink this table design afte more of the
+--       sistem funcionality comes online
 CREATE TABLE IF NOT EXISTS pieces (
   id               bigserial NOT NULL primary key,
   piece_type       varchar   NOT NULL ,
+  -- Probably not necessary?
   client_order     int       NOT NULL references client_orders(order_number),
   raw_mat_cost     money     NOT NULL , -- raw material cost
   raw_mat_arr_date int       NOT NULL , -- raw material arrival date
