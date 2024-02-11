@@ -2,25 +2,23 @@
 -- Used to calculate the MPS and the stock projections
 
 CREATE TABLE IF NOT EXISTS daily_production (
-  day           int NOT NULL primary key,
+  day int NOT NULL primary key,
 
-  p1_production int NOT NULL,
-  p2_production int NOT NULL,
-  p3_production int NOT NULL,
-  p4_production int NOT NULL,
-  p5_production int NOT NULL,
-  p6_production int NOT NULL,
-  p7_production int NOT NULL,
-  p8_production int NOT NULL,
-  p9_production int NOT NULL,
+  p1  int NOT NULL,
+  p2  int NOT NULL,
+  p3  int NOT NULL,
+  p4  int NOT NULL,
+  p5  int NOT NULL,
+  p6  int NOT NULL,
+  p7  int NOT NULL,
+  p8  int NOT NULL,
+  p9  int NOT NULL,
 
   -- NOTE: this table may need some way of referencing concrete
   --       piece data
-
+  --
   CONSTRAINT check_total_production CHECK (
-    p1_production + p2_production + p3_production + p4_production +
-    p5_production + p6_production + p7_production + p8_production +
-    p9_production <= 24
-  ),
+    p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9 <= 24
+  )
 
 );
