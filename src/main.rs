@@ -35,8 +35,7 @@ async fn main() -> Result<(), BoxDynError> {
     }
     println!("All orders placed");
 
-    let mut orders = db::fetch_all_orders(&pool).await?;
-    orders.sort_unstable_by(|a, b| a.ordernumber.cmp(&b.ordernumber));
+    let orders = db::fetch_all_orders(&pool).await?;
     println!("Orders fetched: {:?}", orders.len());
 
     Ok(())

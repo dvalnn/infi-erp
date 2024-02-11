@@ -7,13 +7,13 @@ use sqlx::{
 
 #[derive(Debug, PartialEq, Eq, FromRow)]
 pub struct ClientOrder {
-    pub ordernumber: i64,
-    pub clientnameid: String,
-    pub workpiece: String, //TODO: Change to enum if possible
+    pub order_number: i64,
+    pub client_name_id: String,
+    pub work_piece: String, //TODO: Change to enum if possible
     pub quantity: i32,
-    pub duedate: i32,
-    pub latepen: PgMoney,
-    pub earlypen: PgMoney,
+    pub due_date: i32,
+    pub late_pen: PgMoney,
+    pub early_pen: PgMoney,
 }
 
 impl fmt::Display for ClientOrder {
@@ -21,28 +21,28 @@ impl fmt::Display for ClientOrder {
         write!(
             f,
             "\
-        \tOrderNumber:\t{}\n\
+        \tOrder Number:\t{}\n\
         \tClient:\t\t{}\n\
-        \tWorkPiece:\t{}\n\
+        \tWork Piece:\t{}\n\
         \tQuantity:\t{}\n\
-        \tDueDate:\t{}\n\
-        \tLatePen:\t{:?}\n\
-        \tEarlyPen:\t{:?}\n\
+        \tDue Date:\t{}\n\
+        \tLate Pen:\t{:?}\n\
+        \tEarly Pen:\t{:?}\n\
         ",
-            self.ordernumber,
-            self.clientnameid,
-            self.workpiece,
+            self.order_number,
+            self.client_name_id,
+            self.work_piece,
             self.quantity,
-            self.duedate,
-            self.latepen,
-            self.earlypen,
+            self.due_date,
+            self.late_pen,
+            self.early_pen,
         )
     }
 }
 
 pub async fn update_order(
     new: ClientOrder,
-    old_id: String,
+    old_number: i64,
     pool: &PgPool,
 ) -> Result<(), BoxDynError> {
     sqlx::query!(
@@ -50,22 +50,22 @@ pub async fn update_order(
     UPDATE
         client_orders
     SET
-        OrderNumber = $1,
-        WorkPiece = $2,
-        Quantity = $3,
-        DueDate = $4,
-        LatePen = $5,
-        EarlyPen = $6
+        client_name_id = $1,
+        work_piece = $2,
+        quantity = $3,
+        due_date = $4,
+        late_pen = $5,
+        early_pen = $6
     WHERE
-        ClientNameId = $7
+        order_number = $7
     ",
-        new.ordernumber,
-        new.workpiece,
+        new.client_name_id,
+        new.work_piece,
         new.quantity,
-        new.duedate,
-        new.latepen,
-        new.earlypen,
-        old_id
+        new.due_date,
+        new.late_pen,
+        new.early_pen,
+        old_number,
     )
     .execute(pool)
     .await?;
@@ -81,24 +81,24 @@ pub async fn place_order(
     INSERT INTO
         client_orders
     (
-        OrderNumber,
-        ClientNameId,
-        WorkPiece,
+        order_number,
+        client_name_id,
+        work_piece,
         Quantity,
-        DueDate,
-        LatePen,
-        EarlyPen
+        due_date,
+        late_pen,
+        early_pen
     )
     VALUES
         ($1, $2, $3, $4, $5, $6, $7)
     ",
-        order.ordernumber,
-        order.clientnameid,
-        order.workpiece,
+        order.order_number,
+        order.client_name_id,
+        order.work_piece,
         order.quantity,
-        order.duedate,
-        order.latepen,
-        order.earlypen
+        order.due_date,
+        order.late_pen,
+        order.early_pen
     )
     .execute(pool)
     .await?;
@@ -113,8 +113,8 @@ pub async fn place_unique_order(
 ) -> Result<(), BoxDynError> {
     let query = query_as!(
         ClientOrder,
-        "SELECT * FROM client_orders WHERE ordernumber = $1",
-        order.ordernumber
+        "SELECT * FROM client_orders WHERE order_number = $1",
+        order.order_number
     );
     let orders = query.fetch_all(pool).await?;
     if orders.is_empty() {
@@ -128,7 +128,7 @@ pub async fn fetch_all_orders(
 ) -> Result<Vec<ClientOrder>, BoxDynError> {
     let query = query_as!(
         ClientOrder,
-        "SELECT * FROM client_orders ORDER BY ordernumber"
+        "SELECT * FROM client_orders ORDER BY order_number"
     );
     let orders = query.fetch_all(pool).await?;
     Ok(orders)

@@ -1,9 +1,9 @@
 CREATE TABLE IF NOT EXISTS client_orders (
-  OrderNumber BIGINT NOT NULL PRIMARY KEY,
-  ClientNameId VARCHAR NOT NULL,
-  WorkPiece VARCHAR NOT NULL,
-  Quantity INT NOT NULL,
-  DueDate INT NOT NULL,
-  LatePen MONEY NOT NULL,
-  EarlyPen MONEY NOT NULL
+  order_number BIGINT NOT NULL PRIMARY KEY,
+  client_name_id VARCHAR NOT NULL,
+  work_piece VARCHAR NOT NULL,
+  quantity INT NOT NULL,
+  due_date INT NOT NULL,
+  late_pen MONEY NOT NULL,
+  early_pen MONEY NOT NULL
 );
