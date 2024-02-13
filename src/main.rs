@@ -79,14 +79,14 @@ async fn main() -> Result<(), BoxDynError> {
 
     let api_service =
         OpenApiService::new(ClientOrderApi, "ClientOrders", "1.0.0")
-            .server("http://localhost:24900");
+            .server("http://localhost:3000");
     let ui = api_service.rapidoc(); //NOTE: #1
     let route = Route::new()
         .nest("/", api_service)
         .nest("/ui", ui)
         .data(pool);
 
-    Server::new(TcpListener::bind("localhost:24900"))
+    Server::new(TcpListener::bind("0.0.0.0:3000"))
         .run(route)
         .await?;
 
