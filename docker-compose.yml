@@ -2,6 +2,7 @@ version: "3"
 services:
   api:
     image: dvalinn/infi-erp
+    restart: always
     environment:
       DATABASE_URL: "postgres://postgres:${POSTGRES_PASSWORD}@db:5432"
     build:
