@@ -42,6 +42,11 @@ struct ClientOrderApi;
 
 #[OpenApi]
 impl ClientOrderApi {
+    #[oai(path = "/", method = "get")]
+    async fn index(&self) -> PlainText<&'static str> {
+        PlainText("Hello, world!")
+    }
+
     #[oai(path = "/orders", method = "get")]
     async fn get_all(&self, pool: Data<&PgPool>) -> ClientOrderResponse {
         // TODO : get orders from db
