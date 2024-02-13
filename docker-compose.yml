@@ -8,8 +8,8 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
       - "24680:24680"
+      - "24900:24900"
     depends_on:
       - db
   db:

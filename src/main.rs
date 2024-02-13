@@ -73,19 +73,20 @@ async fn main() -> Result<(), BoxDynError> {
     color_eyre::install()?;
     tracing_subscriber::fmt::init();
 
-    let db_url = "postgres://admin:admin@localhost:5432/infi-postgres";
-    let pool = PgPool::connect(db_url).await?;
+    let db_url =
+        std::env::var("DATABASE_URL").expect("DATABASE_URL is not set");
+    let pool = PgPool::connect(db_url.as_str()).await?;
 
     let api_service =
         OpenApiService::new(ClientOrderApi, "ClientOrders", "1.0.0")
-            .server("http://localhost:3000");
+            .server("http://localhost:24900");
     let ui = api_service.rapidoc(); //NOTE: #1
     let route = Route::new()
         .nest("/", api_service)
         .nest("/ui", ui)
         .data(pool);
 
-    Server::new(TcpListener::bind("127.0.0.1:3000"))
+    Server::new(TcpListener::bind("localhost:24900"))
         .run(route)
         .await?;
 

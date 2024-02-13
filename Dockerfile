@@ -25,5 +25,5 @@ COPY --from=builder /infi-erp/target/release/infi-erp /usr/local/bin/
 
 # Run the executable when the container starts
 CMD ["infi-erp"]
-EXPOSE 3000
 EXPOSE 24680
+EXPOSE 24900
