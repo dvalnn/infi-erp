@@ -2,10 +2,10 @@ CREATE OR REPLACE VIEW mps AS
 SELECT
     dp.day,
 
-    dp.p1, dp.p2, dp.p3, dp.p4, dp.p5, dp.p6, dp.p7, dp.p8, dp.p9,
+    dp.p3, dp.p4, dp.p5, dp.p6, dp.p7, dp.p8, dp.p9,
 
-    w1.p1 + w1.p2 + w1.p3 + w1.p4 + w1.p5 + w1.p6 + w1.p7 + w1.p8 + w1.p9 AS w1,
-    w2.p1 + w2.p2 + w2.p3 + w2.p4 + w2.p5 + w2.p6 + w2.p7 + w2.p8 + w2.p9 AS w2
+    w1.p1 + w1.p2 + w1.p3 + w1.p4 + w1.p8 AS w1,
+    w2.p3 + w2.p4 + w2.p5 + w2.p6 + w2.p7 + w2.p8 + w2.p9 AS w2
 FROM
     daily_production dp
 JOIN
