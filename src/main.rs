@@ -1,14 +1,15 @@
 #![forbid(unsafe_code)]
 #![allow(dead_code, unused_variables)]
 
-mod db;
 mod xml;
 
 use color_eyre::eyre::Result;
 
 use poem::{
-    error::InternalServerError, listener::TcpListener, web::Data, EndpointExt,
-    Route, Server,
+    error::InternalServerError,
+    listener::TcpListener,
+    web::{Data, Path},
+    EndpointExt, Route, Server,
 };
 
 use poem_openapi::{
@@ -18,110 +19,206 @@ use poem_openapi::{
 
 use sqlx::{
     error::BoxDynError,
-    migrate,
-    postgres::{self, PgPool},
+    postgres::{types::PgMoney, PgPool},
 };
-use tracing::info;
-
-use crate::xml::parse_xml;
 
 #[derive(Object)]
-struct ClientOrder {
-    order_number: i64,
+struct Money {
+    cents: i64,
+}
+
+impl From<PgMoney> for Money {
+    fn from(value: PgMoney) -> Self {
+        Money { cents: value.0 }
+    }
+}
+
+#[derive(Object)]
+struct ClientOrderPayload {
     client_name_id: String,
+    order_number: i64,
     work_piece: String,
     quantity: i32,
     due_date: i32,
-    late_pen: i64,
-    early_pen: i64,
+    late_pen: Money,
+    early_pen: Money,
 }
 
-type ClientOrderResponse = poem::Result<Json<Vec<ClientOrder>>>;
+#[derive(Object)]
+struct DeleteOrderPayload {
+    client_name_id: String,
+    order_number: i64,
+}
+
+type ClientOrderResponse = poem::Result<Json<Vec<ClientOrderPayload>>>;
 
 struct ClientOrderApi;
 
 #[OpenApi]
 impl ClientOrderApi {
+    #[oai(path = "/", method = "get")]
+    async fn index(&self) -> PlainText<&'static str> {
+        PlainText("Hello, world!")
+    }
+
+    #[oai(path = "/orders/:name", method = "get")]
+    async fn get_from_client(
+        &self,
+        name: Path<String>,
+        pool: Data<&PgPool>,
+    ) -> ClientOrderResponse {
+        tracing::info!("Fetching orders for: {}", name.0);
+
+        let orders = sqlx::query_as!(
+            ClientOrderPayload,
+            "SELECT * FROM client_orders WHERE client_name_id = $1",
+            name.0
+        )
+        .fetch_all(pool.0)
+        .await
+        .map_err(InternalServerError)?;
+
+        match orders.is_empty() {
+            true => Err(poem::error::NotFoundError.into()),
+            false => Ok(Json(orders)),
+        }
+    }
+
     #[oai(path = "/orders", method = "get")]
     async fn get_all(&self, pool: Data<&PgPool>) -> ClientOrderResponse {
-        // TODO : get orders from db
+        let query =
+            sqlx::query_as!(ClientOrderPayload, "SELECT * FROM client_orders");
 
-        Ok(Json(vec![ClientOrder {
-            order_number: 1,
-            client_name_id: "client".to_string(),
-            work_piece: "work".to_string(),
-            quantity: 1,
-            due_date: 1,
-            late_pen: 1,
-            early_pen: 1,
-        }]))
+        let orders =
+            query.fetch_all(pool.0).await.map_err(InternalServerError)?;
+
+        if orders.is_empty() {
+            return Err(poem::error::NotFoundError.into());
+        }
+
+        Ok(Json(orders))
     }
 
     #[oai(path = "/orders", method = "post")]
     async fn place_order(
         &self,
         pool: Data<&PgPool>,
-        order: Json<ClientOrder>,
-    ) -> poem::Result<Json<i64>> {
-        // TODO : place order in db
-        Ok(Json(1))
+        order: Json<ClientOrderPayload>,
+    ) -> poem::Result<()> {
+        let order = order.0;
+
+        sqlx::query!(
+            "INSERT INTO client_orders VALUES ($1, $2, $3, $4, $5, $6, $7)",
+            order.client_name_id,
+            order.order_number,
+            order.work_piece,
+            order.quantity,
+            order.due_date,
+            PgMoney(order.late_pen.cents),
+            PgMoney(order.early_pen.cents)
+        )
+        .execute(pool.0)
+        .await
+        .map_err(InternalServerError)?;
+
+        Ok(())
+    }
+
+    #[oai(path = "/orders", method = "put")]
+    async fn update_order(
+        &self,
+        pool: Data<&PgPool>,
+        order: Json<ClientOrderPayload>,
+    ) -> poem::Result<()> {
+        let order = order.0;
+
+        tracing::info!(
+            "Updating order: {} {}",
+            order.client_name_id,
+            order.order_number
+        );
+
+        sqlx::query!(
+            "UPDATE
+                client_orders
+            SET
+                work_piece = $1,
+                quantity = $2,
+                due_date = $3,
+                late_pen = $4,
+                early_pen = $5
+            WHERE
+                client_name_id = $6 AND order_number = $7",
+            order.work_piece,
+            order.quantity,
+            order.due_date,
+            PgMoney(order.late_pen.cents),
+            PgMoney(order.early_pen.cents),
+            order.client_name_id,
+            order.order_number
+        )
+        .execute(pool.0)
+        .await
+        .map_err(InternalServerError)?;
+
+        Ok(())
+    }
+
+    #[oai(path = "/orders", method = "delete")]
+    async fn delete_order(
+        &self,
+        pool: Data<&PgPool>,
+        order: Json<DeleteOrderPayload>,
+    ) -> poem::Result<()> {
+        let order = order.0;
+
+        tracing::info!(
+            "Deleting order: {} - {}",
+            order.client_name_id,
+            order.order_number
+        );
+
+        sqlx::query!(
+            "DELETE FROM client_orders \
+             WHERE client_name_id = $1 AND order_number = $2",
+            order.client_name_id,
+            order.order_number
+        )
+        .execute(pool.0)
+        .await
+        .map_err(InternalServerError)?;
+
+        Ok(())
     }
 }
 
 #[tokio::main]
 async fn main() -> Result<(), BoxDynError> {
     color_eyre::install()?;
+    dotenv::dotenv().ok();
     tracing_subscriber::fmt::init();
 
     let db_url =
         std::env::var("DATABASE_URL").expect("DATABASE_URL is not set");
     let pool = PgPool::connect(db_url.as_str()).await?;
 
+    // NOTE: Run the migrations, only if necessary
+    sqlx::migrate!("./migrations").run(&pool).await?;
+
     let api_service =
         OpenApiService::new(ClientOrderApi, "ClientOrders", "1.0.0")
             .server("http://localhost:3000");
-    let ui = api_service.rapidoc(); //NOTE: #1
+
+    let ui = api_service.rapidoc(); //NOTE: Best looking out of the box
+
     let route = Route::new()
         .nest("/", api_service)
-        .nest("/ui", ui)
+        .nest("/orders/ui", ui)
         .data(pool);
 
     Server::new(TcpListener::bind("0.0.0.0:3000"))
         .run(route)
         .await?;
-
-    Ok(())
-}
-
-async fn temp_stuff() -> Result<(), BoxDynError> {
-    let db_url = "postgres://admin:admin@localhost:5432/infi-postgres";
-    let pool = PgPool::connect(db_url).await?;
-    migrate!("./migrations").run(&pool).await?; // Runs only if needed
-
-    let file = "mock_dataset.xml";
-    let orders = parse_xml(file).await?;
-    info!("Parsed orders: {:?}", orders.len());
-
-    let mut handles = Vec::with_capacity(orders.len());
-    for order in orders {
-        let pool = pool.clone();
-        let handle = tokio::task::spawn(async move {
-            match db::place_unique_order(&order, &pool).await {
-                Ok(_) => {}
-                Err(err) => println!("Error: {:?}", err),
-            }
-        });
-        handles.push(handle);
-    }
-
-    info!("Orders to place: {:?}", handles.len());
-    for handle in handles {
-        handle.await?;
-    }
-    info!("All orders placed");
-
-    let orders = db::fetch_all_orders(&pool).await?;
-    info!("Orders fetched: {:?}", orders.len());
 
     Ok(())
 }

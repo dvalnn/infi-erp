@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE\n                client_orders\n            SET\n                work_piece = $1,\n                quantity = $2,\n                due_date = $3,\n                late_pen = $4,\n                early_pen = $5\n            WHERE\n                client_name_id = $6 AND order_number = $7",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Int4",
+        "Int4",
+        "Money",
+        "Money",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "01bfc85cadf1d4f435adc819ea22843f10bcf2478f71d295d27c483ae5cbc92a"
+}

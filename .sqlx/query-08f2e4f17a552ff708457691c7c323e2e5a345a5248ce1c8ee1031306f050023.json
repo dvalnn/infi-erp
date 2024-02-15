@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT * FROM client_orders WHERE order_number = $1",
+  "query": "SELECT * FROM client_orders WHERE client_name_id = $1",
   "describe": {
     "columns": [
       {
@@ -41,7 +41,7 @@
     ],
     "parameters": {
       "Left": [
-        "Int8"
+        "Text"
       ]
     },
     "nullable": [
@@ -54,5 +54,5 @@
       false
     ]
   },
-  "hash": "3c1276ce5af1d1557fd952e473343a8ea1d3e27a27a30ec759873e66e96ec128"
+  "hash": "08f2e4f17a552ff708457691c7c323e2e5a345a5248ce1c8ee1031306f050023"
 }

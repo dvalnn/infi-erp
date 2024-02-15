@@ -5,13 +5,13 @@
     "columns": [
       {
         "ordinal": 0,
-        "name": "order_number",
-        "type_info": "Int8"
+        "name": "client_name_id",
+        "type_info": "Varchar"
       },
       {
         "ordinal": 1,
-        "name": "client_name_id",
-        "type_info": "Varchar"
+        "name": "order_number",
+        "type_info": "Int8"
       },
       {
         "ordinal": 2,
