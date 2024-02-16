@@ -4,61 +4,105 @@
     <meta charset="UTF-8" />
     <title>Orders Table</title>
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        position: relative; /* Add this */
+      }
+      #container {
+        padding: 20px;
+      }
+      #ordersTable {
+        margin-bottom: 20px;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+      }
+      th,
+      td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: center;
+        vertical-align: middle;
+      }
+      th {
+        background-color: #f2f2f2;
+        font-weight: bold;
+      }
+      th:first-child {
+        text-align: left;
+      }
+      .reload-button {
+        position: absolute; /* Add this */
+        top: 40px; /* Add this */
+        right: 20px; /* Add this */
+        padding: 8px 16px;
+        background-color: #007bff; /* Change color to blue */
+        color: white;
+        text-align: center;
+        text-decoration: none;
+        font-size: 16px;
+        margin-bottom: 10px;
+        cursor: pointer;
+        border-radius: 5px;
+      }
+      .reload-button:hover {
+        background-color: #0056b3; /* Darker blue on hover */
+      }
+    </style>
   </head>
-  <style>
-    table {
-      border-collapse: collapse; /* Remove cell borders */
-      width: 100%; /* Or desired width */
-      font-family: sans-serif; /* Or preferred font */
-    }
-    th,
-    td {
-      border: 1px solid #ddd; /* Add cell borders */
-      padding: 8px; /* Adjust padding */
-      text-align: center; /* Centers content horizontally */
-      vertical-align: middle; /* Centers content vertically */
-    }
-    th {
-      background-color: #f2f2f2; /* Light background for headers */
-    }
-  </style>
   <body>
-    <div id="ordersTable">
-      <table>
-        <thead>
-          <tr>
-            <th>Client Name ID</th>
-            <th>Order Number</th>
-            <th>Work Piece</th>
-            <th>Quantity</th>
-            <th>Due Date</th>
-            <th>Late Penalty</th>
-            <th>Early Penalty</th>
-          </tr>
-        </thead>
-        <tbody id="body" hx-target="this" hx-swap="outerHTML" >
-          {% for order in orders %}
-          <tr>
-            <td>
-              <a
-                href="'/orders/' + {{order.client_name_id}}"
-                hx-get="/{{order.client_name_id}}"
-                hx-target="body"
-                hx-swap="outerHTML"
-                >{{ order.client_name_id }}</a
-              >
-            </td>
-            <!-- <td>{{ order.client_name_id }}</td> -->
-            <td>{{ order.order_number }}</td>
-            <td>{{ order.work_piece }}</td>
-            <td>{{ order.quantity }}</td>
-            <td>{{ order.due_date }}</td>
-            <td>{{ order.late_pen.cents }}</td>
-            <td>{{ order.early_pen.cents }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+    <div id="container">
+      <h2>Client Orders</h2>
+      <button
+        class="reload-button"
+        hx-get="/"
+        hx-target="body"
+        hx-swap="outerHTML"
+        hx-indicator=".loading"
+      >
+        Clear Filter
+      </button>
+      <div id="ordersTable">
+        <table>
+          <thead>
+            <tr>
+              <th>Client Name ID</th>
+              <th>Order Number</th>
+              <th>Work Piece</th>
+              <th>Quantity</th>
+              <th>Due Date</th>
+              <th>Late Penalty</th>
+              <th>Early Penalty</th>
+            </tr>
+          </thead>
+          <tbody id="body">
+            {% for order in orders %}
+            <tr>
+              <td>
+                <a
+                  href="'/orders/' + {{order.client_name_id}}"
+                  hx-get="/{{order.client_name_id}}"
+                  hx-target="body"
+                  hx-swap="outerHTML"
+                  >{{ order.client_name_id }}</a
+                >
+              </td>
+              <td>{{ order.order_number }}</td>
+              <td>{{ order.work_piece }}</td>
+              <td>{{ order.quantity }}</td>
+              <td>{{ order.due_date }}</td>
+              <td>{{ order.late_pen.cents }}</td>
+              <td>{{ order.early_pen.cents }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <div class="loading" hx-spinner="dots"></div>
+      </div>
     </div>
   </body>
 </html>

@@ -1,5 +1,5 @@
 /// NOTE: This is implemented independently of the api module so that it can be
-/// extracted into its own crate later on.
+///       extracted into its own crate later on.
 use askama::Template;
 use poem::{
     error::InternalServerError,
@@ -25,19 +25,15 @@ struct Order {
     early_pen: Penalty,
 }
 
-#[derive(Template)]
+#[derive(Template, Debug)]
 #[template(path = "index.html")]
 struct OrdersTable {
     orders: Vec<Order>,
 }
 
 const API_ENDPOINT: &str = "http://localhost:3000/orders";
-async fn fetch_orders(endpoint: &str) -> Result<Vec<Order>, reqwest::Error> {
-    let response = reqwest::get(endpoint).await?;
-    let orders = response.json().await?;
-    Ok(orders)
-}
 
+//TODO: Display an empty table when no orders are found
 #[handler]
 pub async fn render_orders(
     client_opt: Option<Path<String>>,
@@ -48,11 +44,23 @@ pub async fn render_orders(
         endpoint.push_str(&client);
     }
 
-    tracing::info!("making api request to '{endpoint}'");
-    let orders = fetch_orders(&endpoint).await.map_err(InternalServerError)?;
-    let rendered = OrdersTable { orders }
-        .render()
-        .map_err(InternalServerError)?;
+    let response =
+        reqwest::get(&endpoint).await.map_err(InternalServerError)?;
 
-    Ok(Html(rendered))
+    if reqwest::StatusCode::NOT_FOUND == response.status() {
+        tracing::debug!("No orders found for: {}", endpoint);
+        return Err(poem::http::StatusCode::NO_CONTENT.into());
+    }
+
+    let orders = response.json().await.map_err(InternalServerError)?;
+    tracing::debug!("{:#?}", orders);
+
+    let rendered = OrdersTable { orders }.render();
+    match rendered {
+        Ok(rendered) => Ok(Html(rendered)),
+        Err(e) => {
+            tracing::error!("Error rendering orders: {}", e);
+            Err(InternalServerError(e))
+        }
+    }
 }

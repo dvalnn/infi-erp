@@ -5,6 +5,7 @@ mod api;
 mod web;
 
 use api::ClientOrderApi;
+use tracing::Level;
 use web::render_orders;
 
 use poem::{get, listener::TcpListener, EndpointExt, Route, Server};
@@ -14,7 +15,9 @@ use sqlx::{error::BoxDynError, postgres::PgPool};
 #[tokio::main]
 async fn main() -> Result<(), BoxDynError> {
     dotenv::dotenv().ok();
-    tracing_subscriber::fmt().init();
+    tracing_subscriber::fmt()
+        .with_max_level(Level::DEBUG)
+        .init();
 
     let db_url =
         std::env::var("DATABASE_URL").expect("DATABASE_URL is not set");
