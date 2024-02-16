@@ -1,16 +1,20 @@
 #![forbid(unsafe_code)]
+#![allow(dead_code, unused_variables)]
 
 mod api;
+mod web;
 
 use api::ClientOrderApi;
-use poem::{listener::TcpListener, EndpointExt, Route, Server};
+use web::render_orders;
+
+use poem::{get, listener::TcpListener, EndpointExt, Route, Server};
 use poem_openapi::OpenApiService;
 use sqlx::{error::BoxDynError, postgres::PgPool};
 
 #[tokio::main]
 async fn main() -> Result<(), BoxDynError> {
     dotenv::dotenv().ok();
-    tracing_subscriber::fmt::init();
+    tracing_subscriber::fmt().init();
 
     let db_url =
         std::env::var("DATABASE_URL").expect("DATABASE_URL is not set");
@@ -24,13 +28,24 @@ async fn main() -> Result<(), BoxDynError> {
 
     let ui = api_service.rapidoc(); //NOTE: Best looking out of the box
 
-    let route = Route::new()
+    let api_route = Route::new()
         .nest("/", api_service)
         .nest("/orders/ui", ui)
         .data(pool);
 
-    Server::new(TcpListener::bind("0.0.0.0:3000"))
-        .run(route)
+    tokio::spawn(async {
+        Server::new(TcpListener::bind("0.0.0.0:3000"))
+            .run(api_route)
+            .await
+            .unwrap();
+    });
+
+    let web_route = Route::new()
+        .at("/", get(render_orders))
+        .at("/:name", get(render_orders));
+
+    Server::new(TcpListener::bind("0.0.0.0:3030"))
+        .run(web_route)
         .await?;
 
     Ok(())

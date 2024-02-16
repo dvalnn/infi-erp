@@ -12,6 +12,10 @@ tracing-subscriber = { version = "0.3" }
 tokio = { version = "1", features = ["full"] }
 poem = { version = "2" }
 poem-openapi = { version = "4", features = ["rapidoc"] }
+reqwest = { version = "0.11.24", features = ["json"] }
+serde = { version = "1.0.196", features = ["derive"] }
+serde_json = "1.0.113"
+askama = { version = "0.12.1", features = ["serde", "serde-json"] }
 sqlx = { version = "0.7", features = [
   "postgres",
   "runtime-tokio",
