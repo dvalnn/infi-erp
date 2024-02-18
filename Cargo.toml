@@ -7,18 +7,13 @@ edition = "2021"
 
 [dependencies]
 dotenv = "0.15.0"
-tracing = { version = "0.1" }
-tracing-subscriber = { version = "0.3" }
+tracing = "0.1.4"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
-poem = { version = "2" }
-poem-openapi = { version = "4", features = ["rapidoc"] }
-reqwest = { version = "0.11.24", features = ["json"] }
+axum = "0.7.4"
 serde = { version = "1.0.196", features = ["derive"] }
 serde_json = "1.0.113"
 askama = { version = "0.12.1", features = ["serde", "serde-json"] }
-sqlx = { version = "0.7", features = [
-  "postgres",
-  "runtime-tokio",
-  "tls-rustls",
-  "macros",
-] }
+sqlx = { version = "0.7", features = ["postgres", "runtime-tokio", "macros"] }
+tower-http = { version = "0.5.1", features = ["normalize-path", "trace"] }
+tower = "0.4.13"
