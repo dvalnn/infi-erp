@@ -2,7 +2,7 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
-    Extension, Json,
+    Json,
 };
 use sqlx::PgPool;
 
@@ -19,7 +19,7 @@ pub async fn get_all(State(pool): State<PgPool>) -> impl IntoResponse {
 }
 
 pub async fn get_from_client(
-    Extension(pool): Extension<PgPool>,
+    State(pool): State<PgPool>,
     Path(name): Path<String>,
 ) -> impl IntoResponse {
     match queries::fetch_client_orders(&pool, &name).await {
@@ -36,7 +36,7 @@ pub async fn get_from_client(
 }
 
 pub async fn new_order(
-    Extension(pool): Extension<PgPool>,
+    State(pool): State<PgPool>,
     Json(order): Json<ClientOrder>,
 ) -> impl IntoResponse {
     match queries::place_new_order(&pool, &order).await {
@@ -49,7 +49,7 @@ pub async fn new_order(
 }
 
 pub async fn update_order(
-    Extension(pool): Extension<PgPool>,
+    State(pool): State<PgPool>,
     Json(order): Json<ClientOrder>,
 ) -> impl IntoResponse {
     match queries::update_order(&pool, &order).await {
@@ -62,7 +62,7 @@ pub async fn update_order(
 }
 
 pub async fn delete_order(
-    Extension(pool): Extension<PgPool>,
+    State(pool): State<PgPool>,
     Json(order): Json<DeleteOrder>,
 ) -> impl IntoResponse {
     match queries::delete_order(&pool, &order).await {
