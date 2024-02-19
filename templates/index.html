@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE htm&l>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -59,7 +59,7 @@
       <h2>Client Orders</h2>
       <button
         class="reload-button"
-        hx-get="/"
+        hx-get="/orders"
         hx-target="body"
         hx-swap="outerHTML"
         hx-indicator=".loading"
@@ -85,7 +85,7 @@
               <td>
                 <a
                   href="'/orders/' + {{order.client_name_id}}"
-                  hx-get="/{{order.client_name_id}}"
+                  hx-get="/orders/{{order.client_name_id}}"
                   hx-target="body"
                   hx-swap="outerHTML"
                   >{{ order.client_name_id }}</a

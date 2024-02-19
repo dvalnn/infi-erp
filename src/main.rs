@@ -1,17 +1,13 @@
 #![forbid(unsafe_code)]
-#![allow(dead_code, unused_variables)]
 
 mod api;
 mod queries;
 mod web;
 
-use axum::extract::Request;
-use axum::routing::get;
-use axum::ServiceExt;
+use axum::{extract::Request, routing::get, ServiceExt};
 use sqlx::{error::BoxDynError, postgres::PgPool};
 use tower::Layer;
-use tower_http::normalize_path::NormalizePathLayer;
-use tower_http::trace::TraceLayer;
+use tower_http::{normalize_path::NormalizePathLayer, trace::TraceLayer};
 use tracing_subscriber::prelude::*;
 
 async fn connect_to_db() -> Result<PgPool, BoxDynError> {
@@ -38,6 +34,8 @@ async fn main() -> Result<(), BoxDynError> {
 
     let app = axum::Router::new()
         .route("/", get(|| async { "Hello, World!" }))
+        .route("/orders", get(web::orders))
+        .route("/orders/:name", get(web::orders_from))
         .route(
             "/api/orders",
             get(api::get_all)

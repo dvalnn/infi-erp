@@ -1,24 +1,30 @@
 use askama::Template;
-use serde::{Deserialize, Serialize};
+use axum::extract::{Path, State};
+use sqlx::PgPool;
 
-#[derive(Debug, Serialize, Deserialize)]
-struct Penalty {
-    cents: u32,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct Order {
-    client_name_id: String,
-    order_number: u32,
-    work_piece: String,
-    quantity: u32,
-    due_date: u32,
-    late_pen: Penalty,
-    early_pen: Penalty,
-}
+use crate::queries::{self, ClientOrder};
 
 #[derive(Template, Debug)]
 #[template(path = "index.html")]
-struct OrdersTable {
-    orders: Vec<Order>,
+pub struct OrdersTable {
+    orders: Vec<ClientOrder>,
+}
+
+pub async fn orders(State(pool): State<PgPool>) -> OrdersTable {
+    let orders = queries::fetch_all_orders(&pool).await;
+    match orders {
+        Ok(orders) => OrdersTable { orders },
+        Err(_) => OrdersTable { orders: Vec::new() },
+    }
+}
+
+pub async fn orders_from(
+    State(pool): State<PgPool>,
+    Path(name): Path<String>,
+) -> OrdersTable {
+    let orders = queries::fetch_client_orders(&pool, &name).await;
+    match orders {
+        Ok(orders) => OrdersTable { orders },
+        Err(_) => OrdersTable { orders: Vec::new() },
+    }
 }
