@@ -1,0 +1,18 @@
+CREATE TABLE IF NOT EXISTS inventory(
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+
+  location BIGINT,
+  shipping_date INT,
+  piece BIGINT NOT NULL,
+  batch BIGINT NOT NULL,
+  accumulated_cost MONEY NOT NULL DEFAULT 0,
+
+  FOREIGN KEY(piece) REFERENCES pieces(id)
+  ON DELETE CASCADE,
+
+  FOREIGN KEY(location) REFERENCES warehouses(id)
+  ON DELETE CASCADE,
+
+  FOREIGN KEY(batch) REFERENCESsupply_batches(id)
+  ON DELETE CASCADE
+);

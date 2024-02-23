@@ -31,6 +31,7 @@ async fn main() -> Result<(), BoxDynError> {
         .init();
 
     let pool = connect_to_db().await?;
+    sqlx::migrate!("./migrations").run(&pool).await?;
 
     let app = axum::Router::new()
         .route("/", get(|| async { "Hello, World!" }))

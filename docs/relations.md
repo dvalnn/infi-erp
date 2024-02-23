@@ -31,8 +31,7 @@ late_penalty,
 early_penalty
 )
 
-RawMaterialBatches(
-_id_,
+SupplyBatch(_id_,
 \#id -> Supplier,
 ammount,
 total_cost,

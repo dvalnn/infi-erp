@@ -14,8 +14,7 @@ CREATE TABLE IF NOT EXISTS orders(
   FOREIGN KEY(client_id)  REFERENCES clients(id)
     ON DELETE CASCADE,
 
-  UNIQUE(client_id, order_number),
-
+  UNIQUE(client_id, order_number)
 );
 
 CREATE FUNCTION check_work_piece_kind() RETURNS trigger AS
@@ -33,6 +32,6 @@ $$
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER check_work_piece_kind_trigger
-BEFORE INSERT ON your_table
+BEFORE INSERT ON orders
 FOR EACH ROW EXECUTE PROCEDURE check_work_piece_kind();
 
