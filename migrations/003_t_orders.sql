@@ -12,13 +12,27 @@ CREATE TABLE IF NOT EXISTS orders(
   FOREIGN KEY(work_piece) REFERENCES pieces(id)
     ON DELETE CASCADE,
   FOREIGN KEY(client_id)  REFERENCES clients(id)
-    ON DELETE CASCADE
+    ON DELETE CASCADE,
 
-  UNIQUE(client_id, order_number)
+  UNIQUE(client_id, order_number),
 
-  CONSTRAINT check_work_piece_kind CHECK (
-    work_piece IN (
-      SELECT id FROM pieces WHERE kind = 'final product'
-    )
-  )
 );
+
+CREATE FUNCTION check_work_piece_kind() RETURNS trigger AS
+$$
+  BEGIN
+    IF NOT EXISTS (
+      SELECT 1
+      FROM pieces
+      WHERE id = NEW.work_piece AND kind = 'final product'
+    ) THEN
+      RAISE EXCEPTION 'Work piece must be a final product.';
+    END IF;
+    RETURN NULL;
+  END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER check_work_piece_kind_trigger
+BEFORE INSERT ON your_table
+FOR EACH ROW EXECUTE PROCEDURE check_work_piece_kind();
+
