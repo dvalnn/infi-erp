@@ -84,19 +84,19 @@
             <tr>
               <td>
                 <a
-                  href="'/orders/' + {{order.client_name_id}}"
-                  hx-get="/orders/{{order.client_name_id}}"
+                  href="'/orders/' + {{order.client_name}}"
+                  hx-get="/orders/{{order.client_name}}"
                   hx-target="body"
                   hx-swap="outerHTML"
-                  >{{ order.client_name_id }}</a
+                  >{{ order.client_name }}</a
                 >
               </td>
               <td>{{ order.order_number }}</td>
-              <td>{{ order.work_piece }}</td>
+              <td>{{ order.piece_name}}</td>
               <td>{{ order.quantity }}</td>
               <td>{{ order.due_date }}</td>
-              <td>{{ order.late_pen.cents }}</td>
-              <td>{{ order.early_pen.cents }}</td>
+              <td>{{ order.late_penalty.cents }}</td>
+              <td>{{ order.early_penalty.cents }}</td>
             </tr>
             {% endfor %}
           </tbody>

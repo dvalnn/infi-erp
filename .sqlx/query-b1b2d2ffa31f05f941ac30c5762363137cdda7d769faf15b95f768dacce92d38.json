@@ -1,21 +1,21 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT * FROM client_orders WHERE order_number = $1",
+  "query": "\n            SELECT\n                c.name AS client_name,\n                o.order_number,\n                p.name AS piece_name,\n                o.quantity,\n                o.due_date,\n                o.early_penalty,\n                o.late_penalty\n            FROM orders o\n            INNER JOIN clients c ON c.id = o.client_id\n            INNER JOIN pieces p ON p.id = o.work_piece;\n        ",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "client_name_id",
+        "name": "client_name",
         "type_info": "Varchar"
       },
       {
         "ordinal": 1,
         "name": "order_number",
-        "type_info": "Int8"
+        "type_info": "Int4"
       },
       {
         "ordinal": 2,
-        "name": "work_piece",
+        "name": "piece_name",
         "type_info": "Varchar"
       },
       {
@@ -30,19 +30,17 @@
       },
       {
         "ordinal": 5,
-        "name": "late_pen",
+        "name": "early_penalty",
         "type_info": "Money"
       },
       {
         "ordinal": 6,
-        "name": "early_pen",
+        "name": "late_penalty",
         "type_info": "Money"
       }
     ],
     "parameters": {
-      "Left": [
-        "Int8"
-      ]
+      "Left": []
     },
     "nullable": [
       false,
@@ -54,5 +52,5 @@
       false
     ]
   },
-  "hash": "3c1276ce5af1d1557fd952e473343a8ea1d3e27a27a30ec759873e66e96ec128"
+  "hash": "b1b2d2ffa31f05f941ac30c5762363137cdda7d769faf15b95f768dacce92d38"
 }

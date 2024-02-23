@@ -6,7 +6,7 @@ use axum::{
 };
 use sqlx::PgPool;
 
-use crate::queries::{self, ClientOrder, DeleteOrder};
+use crate::queries::{self, DeleteOrder, OrderDetails};
 
 pub async fn get_all(State(pool): State<PgPool>) -> impl IntoResponse {
     match queries::fetch_all_orders(&pool).await {
@@ -37,7 +37,7 @@ pub async fn get_from_client(
 
 pub async fn new_order(
     State(pool): State<PgPool>,
-    Json(order): Json<ClientOrder>,
+    Json(order): Json<OrderDetails>,
 ) -> impl IntoResponse {
     match queries::place_new_order(&pool, &order).await {
         Ok(res) => (StatusCode::CREATED, Json(res.rows_affected())),
@@ -50,7 +50,7 @@ pub async fn new_order(
 
 pub async fn update_order(
     State(pool): State<PgPool>,
-    Json(order): Json<ClientOrder>,
+    Json(order): Json<OrderDetails>,
 ) -> impl IntoResponse {
     match queries::update_order(&pool, &order).await {
         Ok(res) => (StatusCode::OK, Json(res.rows_affected())),

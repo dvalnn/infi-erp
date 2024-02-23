@@ -2,12 +2,12 @@ use askama::Template;
 use axum::extract::{Path, State};
 use sqlx::PgPool;
 
-use crate::queries::{self, ClientOrder};
+use crate::queries::{self, OrderDetails};
 
 #[derive(Template, Debug)]
 #[template(path = "index.html")]
 pub struct OrdersTable {
-    orders: Vec<ClientOrder>,
+    orders: Vec<OrderDetails>,
 }
 
 pub async fn orders(State(pool): State<PgPool>) -> OrdersTable {

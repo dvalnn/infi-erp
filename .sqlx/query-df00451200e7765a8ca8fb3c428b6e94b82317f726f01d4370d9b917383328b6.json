@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM orders WHERE client_id = $1 AND order_number = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "df00451200e7765a8ca8fb3c428b6e94b82317f726f01d4370d9b917383328b6"
+}
