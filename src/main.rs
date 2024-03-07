@@ -1,58 +1,41 @@
-#![forbid(unsafe_code)]
+mod db_api;
+mod udp_listener;
 
-mod api;
-mod queries;
-mod web;
-
-use axum::{extract::Request, routing::get, ServiceExt};
-use sqlx::{error::BoxDynError, postgres::PgPool};
-use tower::Layer;
-use tower_http::{normalize_path::NormalizePathLayer, trace::TraceLayer};
-use tracing_subscriber::prelude::*;
-
-async fn connect_to_db() -> Result<PgPool, BoxDynError> {
-    let db_url =
-        std::env::var("DATABASE_URL").expect("DATABASE_URL is not set");
-    let pool = PgPool::connect(db_url.as_str()).await?;
-    Ok(pool)
-}
+use anyhow::anyhow;
 
 #[tokio::main]
-async fn main() -> Result<(), BoxDynError> {
+async fn main() -> Result<(), anyhow::Error> {
     dotenv::dotenv().ok();
-
-    tracing_subscriber::registry()
-        .with(tracing_subscriber::EnvFilter::new(
-            std::env::var("RUST_LOG").unwrap_or_else(|_| {
-                "example_tracing_aka_logging=debug,tower_http=debug".into()
-            }),
-        ))
-        .with(tracing_subscriber::fmt::layer())
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::DEBUG)
         .init();
 
-    let pool = connect_to_db().await?;
-    sqlx::migrate!("./migrations").run(&pool).await?;
+    let database_url = match std::env::var("DATABASE_URL") {
+        Ok(url) => url,
+        Err(e) => return Err(anyhow!(e)),
+    };
 
-    let app = axum::Router::new()
-        .route("/", get(|| async { "Hello, World!" }))
-        .route("/orders", get(web::orders))
-        .route("/orders/:name", get(web::orders_from))
-        .route(
-            "/api/orders",
-            get(api::get_all)
-                .post(api::new_order)
-                .put(api::update_order)
-                .delete(api::delete_order),
-        )
-        .route("/api/orders/:name", get(api::get_from_client))
-        .layer(TraceLayer::new_for_http())
-        .with_state(pool);
+    let pool = sqlx::PgPool::connect_lazy(&database_url)?;
 
-    let app = NormalizePathLayer::trim_trailing_slash().layer(app);
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
-    tracing::debug!("Listening on {}", listener.local_addr()?);
-    axum::serve(listener, ServiceExt::<Request>::into_make_service(app))
-        .await?;
+    if let Err(e) = sqlx::migrate!("./migrations").run(&pool).await {
+        tracing::error!("Error running migrations: {e}");
+        return Err(anyhow!(e));
+    }
+
+    let _notification_listener =
+        sqlx::postgres::PgListener::connect(&database_url).await?;
+
+    tracing::info!("DB initialization successfull.");
+
+    let socket = tokio::net::UdpSocket::bind("127.0.0.1:24680").await?;
+    tracing::info!("udp_listener on port 24680");
+
+    const BUF_SIZE: usize = 10024;
+    let mut listener =
+        udp_listener::Listener::new(pool.clone(), socket, BUF_SIZE);
+
+    // tokio::spawn(async move { listener.listen().await });
+    listener.listen().await?;
 
     Ok(())
 }
