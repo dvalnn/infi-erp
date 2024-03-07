@@ -1,0 +1,98 @@
+clients(
+  __id__ uuid,
+  name varchar(50) [NN, UK],
+)
+
+orders(
+  __id__ bigint,
+  client_id uuid [FK -> clients(id), NN],
+  number int [NN],
+  quantity int [NN],
+  due_date int [NN],
+  early_penalty money [NN],
+  late_penalty money [NN],
+  placement_day int [NN],
+)
+
+deliveries(
+  __order_id__ bigint [FK -> orders(id), NN],
+  status delivery_status_kind [NN],
+  delivery_date int,
+)
+NOTE: create delivery_status_kind as a domain in postgreSQL.
+      domain should be ["pending", "scheduled", "delivered"]
+      constraint delivery_date null only if status is pendin.
+
+piece(
+  __code__ char(2),
+  type piece_type [NN],
+)
+NOTE: piece_type domain should be ["raw", "inter", "final"]
+
+warehouse(
+  __code__ char(2),
+  capacity int [NN],
+)
+
+item(
+  __id__ bigint,
+  piece_kind bigint [FK -> piece(code), NN],
+  status item_status_kind [NN],
+  accumulated_cost money,
+  location char(2) [FK -> warehouse(code)],
+)
+NOTE: create item_status_kind as a domain in postgreSQL.
+
+tool(
+  __code__ char(2),
+)
+
+machine(
+ __code__ char(2),
+)
+
+machine_tools(
+  __machine__ [FK -> machine(code)],
+  __tool__ [FK -> tool(code)]
+)
+
+recipe(
+  __id__ bigint,
+  input_kind bigint [FK -> piece(code), NN],
+  output_kind bigint [FK -> piece(code), NN],
+  tool bigint [FK -> tools(code), NN],
+  operation_time int [NN]
+)
+NOTE: contraint input_kind != output_kind
+      cascade on delete/update
+
+item_transformations(
+  __id__ bigint,
+  material_id bigint [FK -> item(id), NN],
+  product_id bigint [FK -> item(id), NN],
+  recipe_id bigint [FK -> item(id), NN],
+  date int [NN],
+)
+
+supplier(
+  __id__ bigint,
+  name varchar(50) [NN],
+  raw_material_kind bigint [FK -> piece(code), NN]
+  unit_cost money [NN],
+  min_order_ammount [NN],
+  delivery_time [NN]
+)
+
+shippments(
+  __id__ bigint,
+  supplier_id bigint [FK -> supplier(id), NN],
+  request_date int [NN],
+  quantity int [NN],
+  cost money [NN],
+)
+
+raw_material_arrivals(
+  __raw_material_id__ bigint [FK -> item(id)],
+  shippment_id bigint [FK -> shippment(id)],
+  arrival_date int [NN],
+)
