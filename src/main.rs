@@ -1,4 +1,5 @@
 mod db_api;
+mod scheduler;
 mod udp_listener;
 
 use anyhow::anyhow;
@@ -22,8 +23,7 @@ async fn main() -> Result<(), anyhow::Error> {
         return Err(anyhow!(e));
     }
 
-    let _notification_listener =
-        sqlx::postgres::PgListener::connect(&database_url).await?;
+    let notification_listener = sqlx::postgres::PgListener::connect(&database_url).await?;
 
     tracing::info!("DB initialization successfull.");
 
@@ -31,11 +31,12 @@ async fn main() -> Result<(), anyhow::Error> {
     tracing::info!("udp_listener on port 24680");
 
     const BUF_SIZE: usize = 10024;
-    let mut listener =
-        udp_listener::Listener::new(pool.clone(), socket, BUF_SIZE);
+    let listener = udp_listener::Listener::new(pool.clone(), socket, BUF_SIZE);
 
-    // tokio::spawn(async move { listener.listen().await });
-    listener.listen().await?;
+    tokio::spawn(async move { listener.listen().await });
+    // listener.listen().await?;
+    let scheduler = scheduler::Scheduler::new(pool, notification_listener);
+    scheduler.run().await?;
 
     Ok(())
 }

@@ -21,7 +21,7 @@ impl Listener {
         }
     }
 
-    pub async fn listen(&mut self) -> anyhow::Result<()> {
+    pub async fn listen(mut self) -> anyhow::Result<()> {
         loop {
             let (len, addr) = self.socket.recv_from(&mut self.buffer).await?;
             let message = std::str::from_utf8(&self.buffer[..len])?;

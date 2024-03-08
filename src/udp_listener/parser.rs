@@ -50,7 +50,7 @@ fn try_new_client_order(
     Some(ClientOrder {
         client_name: name.to_string(),
         order_number: number.parse().ok()?,
-        work_piece: WorkPiece::try_from_str(piece)?,
+        work_piece: WorkPiece::try_from(piece).ok()?,
         quantity: quantity.parse().ok()?,
         due_date: due_date.parse().ok()?,
         late_penalty: late_pen,

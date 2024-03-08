@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use sqlx::{
     postgres::types::PgMoney, query, query_as, types::uuid::Uuid, Executor,
     PgConnection, PgPool, Postgres,
@@ -24,14 +25,30 @@ impl std::fmt::Display for WorkPiece {
     }
 }
 
-impl WorkPiece {
-    pub fn try_from_str(s: &str) -> Option<Self> {
-        match s {
-            "P5" => Some(WorkPiece::P5),
-            "P6" => Some(WorkPiece::P6),
-            "P7" => Some(WorkPiece::P7),
-            "P9" => Some(WorkPiece::P9),
-            _ => None,
+impl TryFrom<&str> for WorkPiece {
+    type Error = &'static str;
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "P5" => Ok(WorkPiece::P5),
+            "P6" => Ok(WorkPiece::P6),
+            "P7" => Ok(WorkPiece::P7),
+            "P9" => Ok(WorkPiece::P9),
+            _ => Err("Invalid work piece"),
+        }
+    }
+}
+
+/// Implementing From<String> for WorkPiece
+/// Needs to exists due to sqlx::query_as! macro
+/// *NOT MEANT TO BE USED DIRECTLY*
+///
+/// # Panics
+/// Panics if the string is not a valid work piece
+impl From<String> for WorkPiece {
+    fn from(value: String) -> Self {
+        match WorkPiece::try_from(value.as_str()) {
+            Ok(piece) => piece,
+            Err(e) => panic!("{}", e),
         }
     }
 }
@@ -71,7 +88,7 @@ impl Client {
 
 #[derive(Debug)]
 pub struct Order {
-    id: Option<u64>,
+    id: Option<i64>,
     client_id: Uuid,
     number: i32,
     piece: WorkPiece,
@@ -135,6 +152,15 @@ impl Order {
         .fetch_one(con)
         .await?
         .id)
+    }
+
+    pub async fn get_by_id(
+        id: i64,
+        con: &mut PgConnection,
+    ) -> sqlx::Result<Order> {
+        query_as!(Order, r#"SELECT * FROM orders WHERE id = $1"#, id)
+            .fetch_one(con)
+            .await
     }
 }
 

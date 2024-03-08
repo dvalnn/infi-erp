@@ -8,14 +8,13 @@ pub use clients::*;
 
 pub enum NotificationChannel {
     NewOrder,
-    NewBomEntry,
-    Unknown,
+    // NewBomEntry,
 }
 
 impl NotificationChannel {
     const NEW_ORDER_CHANNEL: &'static str = "new_order";
     const NEW_BOM_ENTRY_CHANNEL: &'static str = "new_bom_entry";
-    pub const ALL_STR: [&'static str; 2] =
+    const ALL_STR: [&'static str; 2] =
         [Self::NEW_ORDER_CHANNEL, Self::NEW_BOM_ENTRY_CHANNEL];
 
     pub async fn notify(
@@ -34,19 +33,23 @@ impl std::fmt::Display for NotificationChannel {
         use NotificationChannel as Nc;
         match self {
             Nc::NewOrder => write!(f, "new_order"),
-            Nc::NewBomEntry => write!(f, "new_bom_entry"),
-            Nc::Unknown => write!(f, "unknown"),
+            // Nc::NewBomEntry => write!(f, "new_bom_entry"),
         }
     }
 }
 
-impl From<&str> for NotificationChannel {
-    fn from(s: &str) -> Self {
-        use NotificationChannel as Nc;
-        match s {
-            Nc::NEW_ORDER_CHANNEL => Nc::NewOrder,
-            Nc::NEW_BOM_ENTRY_CHANNEL => Nc::NewBomEntry,
-            _ => Nc::Unknown,
+impl TryFrom<&str> for NotificationChannel {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            NotificationChannel::NEW_ORDER_CHANNEL => {
+                Ok(NotificationChannel::NewOrder)
+            }
+            // NotificationChannel::NEW_BOM_ENTRY_CHANNEL => {
+            //     Ok(NotificationChannel::NewBomEntry)
+            // }
+            _ => Err(anyhow::anyhow!("Invalid channel name")),
         }
     }
 }
