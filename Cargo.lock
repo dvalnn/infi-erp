@@ -722,6 +722,7 @@ dependencies = [
  "rusty-money",
  "serde",
  "sqlx",
+ "subenum",
  "tokio",
  "tower",
  "tower-http",
@@ -1632,6 +1633,18 @@ dependencies = [
  "finl_unicode",
  "unicode-bidi",
  "unicode-normalization",
+]
+
+[[package]]
+name = "subenum"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "74969180f75990983d0aaab30432cd7d83093277b0882f92b1a1b002c00b8737"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
 ]
 
 [[package]]
