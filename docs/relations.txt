@@ -12,16 +12,9 @@ orders(
   early_penalty money [NN],
   late_penalty money [NN],
   placement_day int [NN],
-)
-
-deliveries(
-  __order_id__ bigint [FK -> orders(id), NN],
-  status delivery_status_kind [NN],
+  status order_status_kind [NN],
   delivery_date int,
 )
-NOTE: create delivery_status_kind as a domain in postgreSQL.
-      domain should be ["pending", "scheduled", "delivered"]
-      constraint delivery_date null only if status is pendin.
 
 piece(
   __code__ char(2),
@@ -37,9 +30,10 @@ warehouse(
 item(
   __id__ bigint,
   piece_kind bigint [FK -> piece(code), NN],
+  order_id bigint [FK -> orders(id)],
+  location char(2) [FK -> warehouse(code)],
   status item_status_kind [NN],
   accumulated_cost money,
-  location char(2) [FK -> warehouse(code)],
 )
 NOTE: create item_status_kind as a domain in postgreSQL.
 
