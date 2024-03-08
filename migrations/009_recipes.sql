@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS recipes (
   id bigint PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-  material_kind char(2) NOT NULL REFERENCES pieces(code),
-  product_kind char(2) NOT NULL REFERENCES pieces(code),
+  material_kind piece_kind NOT NULL REFERENCES pieces(code),
+  product_kind piece_kind NOT NULL REFERENCES pieces(code),
   tool char(2) NOT NULL REFERENCES tools(code),
   operation_time int NOT NULL,
 

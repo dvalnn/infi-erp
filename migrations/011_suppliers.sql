@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS suppliers (
   id bigint PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
   name varchar(50) NOT NULL,
-  raw_material_kind char(2) NOT NULL REFERENCES pieces(code),
+  raw_material_kind piece_kind NOT NULL REFERENCES pieces(code),
   min_order_quantity integer NOT NULL CHECK(min_order_quantity > 0),
   unit_price money NOT NULL CHECK(unit_price > 0::money),
   delivery_time integer NOT NULL CHECK(delivery_time > 0)
