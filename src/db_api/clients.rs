@@ -6,52 +6,7 @@ use sqlx::{
 
 use crate::db_api::NotificationChannel as Ntc;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum WorkPiece {
-    P5,
-    P6,
-    P7,
-    P9,
-}
-
-impl std::fmt::Display for WorkPiece {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            WorkPiece::P5 => write!(f, "P5"),
-            WorkPiece::P6 => write!(f, "P6"),
-            WorkPiece::P7 => write!(f, "P7"),
-            WorkPiece::P9 => write!(f, "P9"),
-        }
-    }
-}
-
-impl TryFrom<&str> for WorkPiece {
-    type Error = &'static str;
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        match value {
-            "P5" => Ok(WorkPiece::P5),
-            "P6" => Ok(WorkPiece::P6),
-            "P7" => Ok(WorkPiece::P7),
-            "P9" => Ok(WorkPiece::P9),
-            _ => Err("Invalid work piece"),
-        }
-    }
-}
-
-/// Implementing From<String> for WorkPiece
-/// Needs to exists due to sqlx::query_as! macro
-/// *NOT MEANT TO BE USED DIRECTLY*
-///
-/// # Panics
-/// Panics if the string is not a valid work piece
-impl From<String> for WorkPiece {
-    fn from(value: String) -> Self {
-        match WorkPiece::try_from(value.as_str()) {
-            Ok(piece) => piece,
-            Err(e) => panic!("{}", e),
-        }
-    }
-}
+use super::{orders::Order, pieces::FinalPiece};
 
 #[derive(Debug)]
 pub struct Client {
@@ -86,89 +41,11 @@ impl Client {
     }
 }
 
-#[derive(Debug)]
-pub struct Order {
-    id: Option<i64>,
-    client_id: Uuid,
-    number: i32,
-    piece: WorkPiece,
-    quantity: i32,
-    due_date: i32,
-    early_penalty: PgMoney,
-    late_penalty: PgMoney,
-    placement_day: i32,
-}
-
-impl Order {
-    pub fn new(
-        client_id: Uuid,
-        number: i32,
-        piece: WorkPiece,
-        quantity: i32,
-        due_date: i32,
-        early_penalty: i64,
-        late_penalty: i64,
-    ) -> Self {
-        Self {
-            id: None,
-            client_id,
-            number,
-            piece,
-            quantity,
-            due_date,
-            early_penalty: PgMoney(early_penalty),
-            late_penalty: PgMoney(late_penalty),
-            placement_day: 1, //TODO: get current date
-        }
-    }
-
-    pub async fn insert(
-        order: Order,
-        con: &mut PgConnection,
-    ) -> sqlx::Result<i64> {
-        Ok(query!(
-            "INSERT INTO orders (
-                client_id,
-                number,
-                piece,
-                quantity,
-                due_date,
-                early_penalty,
-                late_penalty,
-                placement_day
-            )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-            RETURNING id
-            ",
-            order.client_id,
-            order.number,
-            order.piece.to_string(),
-            order.quantity,
-            order.due_date,
-            order.early_penalty,
-            order.late_penalty,
-            order.placement_day,
-        )
-        .fetch_one(con)
-        .await?
-        .id)
-    }
-
-    pub async fn get_by_id(
-        id: i64,
-        con: &mut PgConnection,
-    ) -> sqlx::Result<Order> {
-        query_as!(Order, r#"SELECT * FROM orders WHERE id = $1"#, id)
-            .fetch_one(con)
-            .await
-    }
-}
-
 #[derive(Debug, PartialEq, Eq)]
 pub struct ClientOrder {
     pub client_name: String,
     pub order_number: i32,
-    pub work_piece: WorkPiece,
+    pub work_piece: FinalPiece,
     pub quantity: i32,
     pub due_date: i32,
     pub late_penalty: i64,

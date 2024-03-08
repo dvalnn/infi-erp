@@ -6,7 +6,7 @@ use nom::{
     IResult, Parser,
 };
 
-use crate::db_api::{ClientOrder, WorkPiece};
+use crate::db_api::{ClientOrder, FinalPiece};
 
 fn parse_money(input: &str) -> IResult<&str, Option<i64>> {
     let (input, _) = tag("€")(input)?;
@@ -50,7 +50,7 @@ fn try_new_client_order(
     Some(ClientOrder {
         client_name: name.to_string(),
         order_number: number.parse().ok()?,
-        work_piece: WorkPiece::try_from(piece).ok()?,
+        work_piece: FinalPiece::try_from(piece).ok()?,
         quantity: quantity.parse().ok()?,
         due_date: due_date.parse().ok()?,
         late_penalty: late_pen,
@@ -121,7 +121,7 @@ pub fn parse_many(input: &str) -> IResult<&str, Vec<ClientOrder>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db_api::{ClientOrder, WorkPiece};
+    use crate::db_api::{ClientOrder, FinalPiece};
 
     #[test]
     fn test_parse() {
@@ -138,7 +138,7 @@ mod tests {
         let expected = Some(ClientOrder {
             client_name: "John Doe".to_string(),
             order_number: 1,
-            work_piece: WorkPiece::P5,
+            work_piece: FinalPiece::P5,
             quantity: 10,
             due_date: 31,
             late_penalty: 10000,
@@ -155,7 +155,7 @@ mod tests {
         let expected = ClientOrder {
             client_name: "Kling Inc".to_string(),
             order_number: 1,
-            work_piece: WorkPiece::P9,
+            work_piece: FinalPiece::P9,
             quantity: 3,
             due_date: 4,
             late_penalty: 574,
@@ -193,7 +193,7 @@ mod tests {
             ClientOrder {
                 client_name: "John Doe".to_string(),
                 order_number: 1,
-                work_piece: WorkPiece::P5,
+                work_piece: FinalPiece::P5,
                 quantity: 10,
                 due_date: 31,
                 late_penalty: 10,
@@ -202,7 +202,7 @@ mod tests {
             ClientOrder {
                 client_name: "John Doe".to_string(),
                 order_number: 1,
-                work_piece: WorkPiece::P5,
+                work_piece: FinalPiece::P5,
                 quantity: 10,
                 due_date: 31,
                 late_penalty: 10,

@@ -1,3 +1,5 @@
+mod order_handler;
+
 use sqlx::{postgres::PgListener, PgPool};
 
 use crate::db_api::{self};
@@ -29,11 +31,20 @@ impl Scheduler {
                         );
                         continue;
                     };
-                    let mut con = pool.acquire().await?;
-                    let order =
-                        db_api::Order::get_by_id(order_id, &mut con).await?;
+
+                    let order = {
+                        let mut con = pool.acquire().await?;
+                        db_api::Order::get_by_id(order_id, &mut con).await?
+                    };
 
                     tracing::debug!("Received new order: {:?}", order);
+
+                    let _order_items =
+                        order_handler::gen_items(order, &pool).await?;
+
+                    // for each item generate its components and
+                    // transformations. Then schedule everything
+                    // and update the item status to "Scheduled"
                 }
                 Err(e) => {
                     tracing::error!("{e} while receiving notification");
