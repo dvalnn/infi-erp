@@ -2,9 +2,11 @@
 
 // Modules
 mod clients;
+mod deliveries;
 
 // Re-exports
 pub use clients::*;
+pub use deliveries::*;
 
 pub enum NotificationChannel {
     NewOrder,
