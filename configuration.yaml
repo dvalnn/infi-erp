@@ -1,0 +1,9 @@
+application:
+  udp_port: 24680
+  udp_buffer_size: 10024
+database:
+  host: "127.0.0.1"
+  port: 5432
+  username: "postgres"
+  password: "postgrespw"
+  database_name: "erp"

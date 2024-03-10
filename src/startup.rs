@@ -21,12 +21,8 @@ impl AppBuilder {
         }
     }
 
-    pub fn with_udp_listener(
-        mut self,
-        address: impl Into<String>,
-        buffer_size: usize,
-    ) -> Self {
-        self.udp_address = Some(address.into());
+    pub fn with_udp_listener(mut self, port: u16, buffer_size: usize) -> Self {
+        self.udp_address = Some(format!("localhost:{}", port));
         self.udp_buffer_size = Some(buffer_size);
         self
     }
