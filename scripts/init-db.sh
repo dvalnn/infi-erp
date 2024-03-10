@@ -29,15 +29,17 @@ DB_NAME="${POSTGRES_DB:=erp}"
 DB_PORT="${POSTGRES_PORT:=5432}"
 DB_HOST="${POSTGRES_HOST:=localhost}"
 
-docker run \
-	--name dev-postgres-erp \
-	-e POSTGRES_USER=${DB_USER} \
-	-e POSTGRES_PASSWORD=${DB_PASSWORD} \
-	-e POSTGRES_DB=${DB_NAME} \
-	-p "${DB_PORT}":5432 \
-	-d postgres:16-alpine \
-	postgres -N 1000
+if [[ -z "${SKIP_DOCKER}" ]]; then
+	docker run \
+		--name dev-postgres-erp \
+		-e POSTGRES_USER=${DB_USER} \
+		-e POSTGRES_PASSWORD=${DB_PASSWORD} \
+		-e POSTGRES_DB=${DB_NAME} \
+		-p "${DB_PORT}":5432 \
+		-d postgres:16-alpine \
+		postgres -N 1000
 # ^ Increased maximum number of connections for testing purposes
+fi
 
 export PGPASSWORD="${DB_PASSWORD}"
 until psql -h "${DB_HOST}" -U "${DB_USER}" -p "${DB_PORT}" -d "postgres" -c '\q'; do
@@ -51,3 +53,5 @@ DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_N
 export DATABASE_URL
 sqlx database create
 sqlx migrate run
+
+>&2 echo "Postgres has been migrated, ready to go!"
