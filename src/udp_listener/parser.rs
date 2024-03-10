@@ -1,24 +1,50 @@
 use nom::{
     bytes::complete::{tag, take_until},
-    character::complete::{digit1, multispace0, multispace1},
+    character::complete::{multispace0, multispace1},
     multi::fold_many1,
     sequence::{delimited, pair, preceded, terminated},
-    IResult, Parser,
+    IResult,
 };
 
 use crate::db_api::{ClientOrder, FinalPiece};
 
-fn parse_money(input: &str) -> IResult<&str, Option<i64>> {
-    let (input, _) = tag("€")(input)?;
-    let (input, units_str) = terminated(digit1, tag(",").or(tag(".")))(input)?;
+fn parse_euros_and_cents(input: &str) -> anyhow::Result<i64> {
+    let (euros_str, cents_str) = match input.split_once(',') {
+        Some((euros, cents)) => (euros, cents),
+        None => match input.split_once('.') {
+            Some((euros, cents)) => (euros, cents),
+            None => anyhow::bail!("Invalid currency separator"),
+        },
+    };
 
-    let cents = input.parse::<i64>().ok();
-    let units = units_str.parse::<i64>().ok();
+    let cents = match cents_str.len() {
+        1 => cents_str.parse::<i64>()? * 10,
+        2 => cents_str.parse::<i64>()?,
+        _ => anyhow::bail!("Invalid number of cents"),
+    };
 
-    if let (Some(cents), Some(units)) = (cents, units) {
-        Ok(("", Some(units * 100 + cents)))
-    } else {
-        Ok((input, None))
+    let euros = match euros_str.parse::<i64>() {
+        Ok(e) => e * 100,
+        Err(e) => anyhow::bail!("{}", e),
+    };
+
+    Ok(euros + cents)
+}
+
+fn parse_money(input: &str) -> anyhow::Result<i64> {
+    let input = input.replace('€', "");
+    let has_cents = input.contains('.') || input.contains(',');
+
+    if has_cents {
+        return match parse_euros_and_cents(&input) {
+            Ok(money) => Ok(money),
+            Err(e) => Err(anyhow::anyhow!("{}", e)),
+        };
+    }
+
+    match input.parse::<i64>() {
+        Ok(money) => Ok(money * 100),
+        Err(e) => Err(anyhow::anyhow!("{}", e)),
     }
 }
 
@@ -32,7 +58,7 @@ fn try_new_client_order(
     early_pen: &str,
 ) -> Option<ClientOrder> {
     let late_pen = match parse_money(late_pen) {
-        Ok((_, pen)) => pen?,
+        Ok(pen) => pen,
         Err(e) => {
             tracing::error!("{} while parsing late penalty", e);
             return None;
@@ -40,7 +66,7 @@ fn try_new_client_order(
     };
 
     let early_pen = match parse_money(early_pen) {
-        Ok((_, pen)) => pen?,
+        Ok(pen) => pen,
         Err(e) => {
             tracing::error!("{} while parsing late penalty", e);
             return None;
@@ -120,97 +146,145 @@ pub fn parse_many(input: &str) -> IResult<&str, Vec<ClientOrder>> {
 
 #[cfg(test)]
 mod tests {
+    use rstest::rstest;
+
     use super::*;
     use crate::db_api::{ClientOrder, FinalPiece};
 
-    #[test]
-    fn test_parse() {
-        let input = r#" <ClientOrder>
-                        <Client NameId="John Doe"/>
-                        <Order Number="1"
-                            WorkPiece="P5"
-                            Quantity="10"
-                            DueDate="31"
-                            LatePen="€100,00"
-                            EarlyPen="€50,32"/>
-                        </ClientOrder>"#;
+    struct Money {
+        euros: i64,
+        cents: i64,
+    }
 
-        let expected = Some(ClientOrder {
-            client_name: "John Doe".to_string(),
-            order_number: 1,
-            work_piece: FinalPiece::P5,
-            quantity: 10,
-            due_date: 31,
-            late_penalty: 10000,
-            early_penalty: 5032,
-        });
+    impl Money {
+        const fn new(euros: i64, cents: i64) -> Self {
+            Self { euros, cents }
+        }
+    }
 
+    struct OrderParams {
+        name: &'static str,
+        number: i32,
+        piece: FinalPiece,
+        quantity: i32,
+        due_date: i32,
+        late_pen: Money,
+        early_pen: Money,
+    }
+
+    impl OrderParams {
+        const fn new(
+            name: &'static str,
+            number: i32,
+            piece: FinalPiece,
+            quantity: i32,
+            due_date: i32,
+            late_pen: Money,
+            early_pen: Money,
+        ) -> Self {
+            Self {
+                name,
+                number,
+                piece,
+                quantity,
+                due_date,
+                late_pen,
+                early_pen,
+            }
+        }
+
+        fn to_client_order(&self) -> ClientOrder {
+            ClientOrder {
+                client_name: self.name.to_string(),
+                order_number: self.number,
+                work_piece: self.piece,
+                quantity: self.quantity,
+                due_date: self.due_date,
+                late_penalty: self.late_pen.euros * 100 + self.late_pen.cents,
+                early_penalty: self.early_pen.euros * 100
+                    + self.early_pen.cents,
+            }
+        }
+
+        fn as_mock_input(&self) -> String {
+            format!(
+                r#"<ClientOrder>
+            <Client NameId="{0}"/>
+            <Order Number="{1}"
+                WorkPiece="{2}"
+                Quantity="{3}"
+                DueDate="{4}"
+                LatePen="€{5},{6}"
+                EarlyPen="€{7},{8}"/>
+            </ClientOrder>"#,
+                self.name,
+                self.number,
+                self.piece,
+                self.quantity,
+                self.due_date,
+                self.late_pen.euros,
+                self.late_pen.cents,
+                self.early_pen.euros,
+                self.early_pen.cents,
+            )
+        }
+    }
+
+    static MOCK_ORDERS: [OrderParams; 3] = [
+        OrderParams::new(
+            "John Doe",
+            1,
+            FinalPiece::P5,
+            10,
+            31,
+            Money::new(0, 10),
+            Money::new(50, 32),
+        ),
+        OrderParams::new(
+            "Kling Inc",
+            1,
+            FinalPiece::P9,
+            3,
+            4,
+            Money::new(5, 74),
+            Money::new(66, 32),
+        ),
+        OrderParams::new(
+            "John Doe",
+            2,
+            FinalPiece::P5,
+            10,
+            31,
+            Money::new(20, 0),
+            Money::new(0, 0),
+        ),
+    ];
+
+    #[rstest]
+    #[case(&MOCK_ORDERS[0].as_mock_input(), Some(MOCK_ORDERS[0].to_client_order()))]
+    #[case(&MOCK_ORDERS[1].as_mock_input(), Some(MOCK_ORDERS[1].to_client_order()))]
+    #[case(&MOCK_ORDERS[2].as_mock_input(), Some(MOCK_ORDERS[2].to_client_order()))]
+    fn test_parse(#[case] input: &str, #[case] expected: Option<ClientOrder>) {
         let (_, result) = parse(input).unwrap();
         assert_eq!(result, expected);
     }
 
     #[test]
-    fn test_form_mock_input() {
-        let input = include_str!("../../mock_client_orders.xml");
-        let expected = ClientOrder {
-            client_name: "Kling Inc".to_string(),
-            order_number: 1,
-            work_piece: FinalPiece::P9,
-            quantity: 3,
-            due_date: 4,
-            late_penalty: 574,
-            early_penalty: 6632,
-        };
-
-        let (_, result) = parse(input).unwrap();
-        assert_eq!(result, Some(expected));
-    }
-
-    #[test]
     fn test_parse_many() {
-        let input = r#" -- I AM A PREAMBLE --
-                        <ClientOrder>
-                        <Client NameId="John Doe"/>
-                        <Order Number="1"
-                            WorkPiece="P5"
-                            Quantity="10"
-                            DueDate="31"
-                            LatePen="€0,10"
-                            EarlyPen="€50,32"/>
-                        </ClientOrder>
-                        -- I AM FURTHER INVALID DATA --
-                        <ClientOrder>
-                        <Client NameId="John Doe"/>
-                        <Order Number="1"
-                            WorkPiece="P5"
-                            Quantity="10"
-                            DueDate="31"
-                            LatePen="€0,10"
-                            EarlyPen="€50,32"/>
-                        </ClientOrder>"#;
-
+        let input = format!(
+            "--I AM PREAMBLE-- {0}{1} --I AM SOME MUMBO JUMBO-- {2} -- I AM POSTAMBLE--",
+            MOCK_ORDERS[0].as_mock_input(),
+            MOCK_ORDERS[1].as_mock_input(),
+            MOCK_ORDERS[2].as_mock_input()
+            
+        );
         let expected = vec![
-            ClientOrder {
-                client_name: "John Doe".to_string(),
-                order_number: 1,
-                work_piece: FinalPiece::P5,
-                quantity: 10,
-                due_date: 31,
-                late_penalty: 10,
-                early_penalty: 5032,
-            },
-            ClientOrder {
-                client_name: "John Doe".to_string(),
-                order_number: 1,
-                work_piece: FinalPiece::P5,
-                quantity: 10,
-                due_date: 31,
-                late_penalty: 10,
-                early_penalty: 5032,
-            },
+            MOCK_ORDERS[0].to_client_order(),
+            MOCK_ORDERS[1].to_client_order(),
+            MOCK_ORDERS[2].to_client_order()
         ];
 
-        let (_, result) = parse_many(input).unwrap();
+        let (_, result) = parse_many(&input).unwrap();
         assert_eq!(result, expected);
     }
 }
