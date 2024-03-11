@@ -22,7 +22,7 @@ impl AppBuilder {
     }
 
     pub fn with_udp_listener(mut self, port: u16, buffer_size: usize) -> Self {
-        self.udp_address = Some(format!("localhost:{}", port));
+        self.udp_address = Some(format!("127.0.0.1:{}", port));
         self.udp_buffer_size = Some(buffer_size);
         self
     }

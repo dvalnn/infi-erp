@@ -28,8 +28,13 @@ impl Scheduler {
         tracing::debug!("Received new order: {:?}", order);
 
         let piece = order.piece();
-        let _recipe = order_handler::gen_full_recipe(piece, pool).await?;
-        let _order_items = order_handler::gen_items(order, pool).await?;
+        let recipe = order_handler::gen_full_recipe(piece, pool);
+        let order_items = order_handler::gen_items(order, pool);
+
+        let (recipe, order_items) = tokio::try_join!(recipe, order_items)?;
+
+        tracing::debug!("Generated recipe: {:?}", recipe);
+        tracing::debug!("Generated order items: {:?}", order_items);
 
         // for each item generate its components and
         // transformations. Then schedule everything
