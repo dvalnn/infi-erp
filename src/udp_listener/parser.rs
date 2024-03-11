@@ -276,12 +276,12 @@ mod tests {
             MOCK_ORDERS[0].as_mock_input(),
             MOCK_ORDERS[1].as_mock_input(),
             MOCK_ORDERS[2].as_mock_input()
-            
         );
+
         let expected = vec![
             MOCK_ORDERS[0].to_client_order(),
             MOCK_ORDERS[1].to_client_order(),
-            MOCK_ORDERS[2].to_client_order()
+            MOCK_ORDERS[2].to_client_order(),
         ];
 
         let (_, result) = parse_many(&input).unwrap();

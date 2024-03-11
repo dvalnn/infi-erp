@@ -1,5 +1,3 @@
-#![allow(dead_code, unused_variables, unused_mut)]
-
 mod parser;
 
 pub struct Listener {
@@ -35,17 +33,22 @@ impl Listener {
                 }
             };
 
-            let orders = orders.iter().fold(Vec::new(), |mut acc, order| {
-                acc.push(order.insert_to_db(&self.pool));
-                acc
+            let pool = self.pool.clone();
+
+            tokio::spawn(async move {
+                let orders =
+                    orders.iter().fold(Vec::new(), |mut acc, order| {
+                        acc.push(order.insert_to_db(&pool));
+                        acc
+                    });
+
+                let n_orders = orders.len();
+
+                match futures::future::try_join_all(orders).await {
+                    Ok(_) => tracing::info!("Placed {} orders", n_orders),
+                    Err(e) => tracing::error!("{e} while placing new orders"),
+                };
             });
-
-            let n_orders = orders.len();
-
-            match futures::future::try_join_all(orders).await {
-                Ok(_) => tracing::info!("Placed {} orders", n_orders),
-                Err(e) => tracing::error!("{e} while placing new orders"),
-            }
         }
     }
 }
