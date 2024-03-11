@@ -13,6 +13,7 @@ pub enum ToolType {
     T6,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Recipe {
     pub id: i64,
     pub material_kind: PieceKind,
@@ -26,7 +27,7 @@ impl Recipe {
         product: PieceKind,
         pool: &PgPool,
     ) -> sqlx::Result<Vec<Recipe>> {
-    sqlx::query_as!(
+        sqlx::query_as!(
             Recipe,
             r#"SELECT
                 id,

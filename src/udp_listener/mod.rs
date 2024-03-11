@@ -20,6 +20,10 @@ impl Listener {
     }
 
     pub async fn listen(mut self) -> anyhow::Result<()> {
+        tracing::info!(
+            "Listening for UDP messages on {}",
+            self.socket.local_addr()?
+        );
         loop {
             let (len, addr) = self.socket.recv_from(&mut self.buffer).await?;
             let message = std::str::from_utf8(&self.buffer[..len])?;
