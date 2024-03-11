@@ -1,12 +1,16 @@
 use subenum::subenum;
 
-#[subenum(FinalPiece)]
+#[subenum(FinalPiece, InterPiece, RawMaterial)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
 #[sqlx(type_name = "piece_kind")]
 pub enum PieceKind {
+    #[subenum(RawMaterial)]
     P1,
+    #[subenum(RawMaterial)]
     P2,
+    #[subenum(InterPiece)]
     P3,
+    #[subenum(InterPiece)]
     P4,
     #[subenum(FinalPiece)]
     P5,
@@ -14,6 +18,7 @@ pub enum PieceKind {
     P6,
     #[subenum(FinalPiece)]
     P7,
+    #[subenum(InterPiece)]
     P8,
     #[subenum(FinalPiece)]
     P9,

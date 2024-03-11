@@ -5,12 +5,14 @@ mod clients;
 mod items;
 mod orders;
 mod pieces;
+mod recipes;
 
 // Re-exports
 pub use clients::*;
 pub use items::*;
 pub use orders::*;
 pub use pieces::*;
+pub use recipes::*;
 
 pub enum NotificationChannel {
     NewOrder,

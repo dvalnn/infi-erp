@@ -22,6 +22,7 @@ impl std::fmt::Display for ItemStatus {
     }
 }
 
+#[derive(Debug)]
 pub struct Item {
     id: Option<i64>,
     piece_kind: PieceKind,
@@ -51,16 +52,20 @@ impl Item {
     }
 
     pub async fn insert(
-        &self,
+        mut self,
         con: &mut sqlx::PgConnection,
-    ) -> sqlx::Result<i64> {
-        Ok(sqlx::query!(
-            "INSERT INTO items (piece_kind) VALUES ($1) RETURNING id",
-            self.piece_kind as PieceKind
-        )
-        .fetch_one(con)
-        .await?
-        .id)
+    ) -> sqlx::Result<Self> {
+        self.id = Some(
+            sqlx::query!(
+                "INSERT INTO items (piece_kind) VALUES ($1) RETURNING id",
+                self.piece_kind as PieceKind
+            )
+            .fetch_one(con)
+            .await?
+            .id,
+        );
+
+        Ok(self)
     }
 
     pub async fn get_by_id(

@@ -1,8 +1,8 @@
-mod order_handler;
+mod handlers;
 
 use sqlx::{postgres::PgListener, PgPool};
 
-use crate::db_api::{self};
+use crate::{db_api, scheduler::handlers::order_handler};
 
 pub struct Scheduler {
     pool: PgPool,
@@ -14,41 +14,47 @@ impl Scheduler {
         Self { pool, listener }
     }
 
-    pub async fn run(self) -> anyhow::Result<()> {
-        let Scheduler { pool, mut listener } = self;
+    pub async fn process_notif(
+        payload: &str,
+        pool: &PgPool,
+    ) -> anyhow::Result<()> {
+        let order_id = payload.parse::<i64>()?;
 
-        listener
+        let order = {
+            let mut con = pool.acquire().await?;
+            db_api::Order::get_by_id(order_id, &mut con).await?
+        };
+
+        tracing::debug!("Received new order: {:?}", order);
+
+        let piece = order.piece();
+        let _recipe = order_handler::gen_full_recipe(piece, pool).await?;
+        let _order_items = order_handler::gen_items(order, pool).await?;
+
+        // for each item generate its components and
+        // transformations. Then schedule everything
+        // and update the item status to "Scheduled"
+
+        Ok(())
+    }
+
+    pub async fn run(mut self) -> anyhow::Result<()> {
+        self.listener
             .listen(&db_api::NotificationChannel::NewOrder.to_string())
             .await?;
 
         loop {
-            match listener.recv().await {
-                Ok(notif) => {
-                    let Ok(order_id) = notif.payload().parse::<i64>() else {
-                        tracing::error!(
-                            "Error while parsing order id from: {}",
-                            notif.payload()
-                        );
-                        continue;
-                    };
-
-                    let order = {
-                        let mut con = pool.acquire().await?;
-                        db_api::Order::get_by_id(order_id, &mut con).await?
-                    };
-
-                    tracing::debug!("Received new order: {:?}", order);
-
-                    let _order_items =
-                        order_handler::gen_items(order, &pool).await?;
-
-                    // for each item generate its components and
-                    // transformations. Then schedule everything
-                    // and update the item status to "Scheduled"
-                }
+            let notif = match self.listener.recv().await {
+                Ok(notif) => notif,
                 Err(e) => {
-                    tracing::error!("{e} while receiving notification");
+                    tracing::error!("{:?}", e);
+                    continue;
                 }
+            };
+
+            match Self::process_notif(notif.payload(), &self.pool).await {
+                Ok(_) => (),
+                Err(e) => tracing::error!("{:?}", e),
             }
         }
     }
