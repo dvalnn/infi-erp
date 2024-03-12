@@ -1,9 +1,26 @@
 use crate::db_api::{Item, RawMaterial, Recipe, Transformation};
 
-pub async fn gen_transformations(
+#[derive(Debug)]
+pub struct Step {
+    pub material: Item,
+    pub transf: Transformation,
+    pub recipe: Recipe,
+}
+
+impl Step {
+    pub fn new(material: Item, transf: Transformation, recipe: Recipe) -> Self {
+        Self {
+            material,
+            transf,
+            recipe,
+        }
+    }
+}
+
+pub fn describe_process(
     full_recipe: &[Recipe],
     item: Item,
-) -> anyhow::Result<Vec<(Item, Transformation, Recipe)>> {
+) -> anyhow::Result<Vec<Step>> {
     let Some(last_step) = full_recipe.last() else {
         anyhow::bail!("No recipes to follow");
     };
@@ -15,16 +32,16 @@ pub async fn gen_transformations(
 
     let mut item_tf_pairs = Vec::new();
 
+    let mut product_id = item.id();
     for recipe in full_recipe {
-        let material =
-            Item::new(recipe.material_kind).set_order(item.order_id());
+        let mat = Item::new(recipe.material_kind).set_order(item.order_id());
+        let transf = Transformation::new(product_id, mat.id());
 
-        // let tf = Transformation::new(product_id, new_id);
-
-        // item_tf_pairs.push((material, tf, *recipe));
+        product_id = mat.id();
+        item_tf_pairs.push(Step::new(mat, transf, *recipe));
     }
 
-    tracing::debug!("new item_tf_pairs: {:#?}", item_tf_pairs);
+    tracing::trace!("new process: {:?}", item_tf_pairs);
 
     Ok(item_tf_pairs)
 }

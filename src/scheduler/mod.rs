@@ -3,9 +3,15 @@ mod handlers;
 use sqlx::{postgres::PgListener, PgPool};
 
 use crate::{
-    db_api,
+    db_api::{self, Item},
     scheduler::handlers::{item_handler, order_handler},
 };
+
+#[derive(Debug)]
+struct ItemBlueprint {
+    item: Item,
+    process: Vec<item_handler::Step>,
+}
 
 pub struct Scheduler {
     pool: PgPool,
@@ -47,15 +53,26 @@ impl Scheduler {
         // for each item generate its components and
         // transformations. Then schedule everything
         // and update the item status to "Scheduled"
-        let mut pair_vec = Vec::new();
-        for item in order_items {
-            let item_tf_pairs =
-                item_handler::gen_transformations(&recipe, item);
+        let blueprints =
+            order_items.into_iter().fold(Vec::new(), |mut acc, item| {
+                let process =
+                    match item_handler::describe_process(&recipe, item.clone())
+                    {
+                        Ok(proc) => proc,
+                        Err(e) => {
+                            tracing::error!("{:?}", e);
+                            return acc;
+                        }
+                    };
 
-            pair_vec.push(item_tf_pairs);
-        }
+                acc.push(ItemBlueprint {
+                    item: item.clone(),
+                    process,
+                });
+                acc
+            });
 
-        //TODO: schedule the transformations
+        tracing::trace!("Generated blueprints: {:?}", blueprints);
 
         Ok(())
     }
