@@ -22,7 +22,7 @@ impl std::fmt::Display for ItemStatus {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Item {
     id: Option<i64>,
     piece_kind: PieceKind,
@@ -57,8 +57,15 @@ impl Item {
     ) -> sqlx::Result<Self> {
         self.id = Some(
             sqlx::query!(
-                "INSERT INTO items (piece_kind) VALUES ($1) RETURNING id",
-                self.piece_kind as PieceKind
+                "INSERT INTO
+                items (piece_kind, order_id, location, status, acc_cost)
+                VALUES ($1, $2, $3, $4, $5)
+                RETURNING id",
+                self.piece_kind as PieceKind,
+                self.order_id,
+                self.location,
+                self.status as ItemStatus,
+                self.acc_cost
             )
             .fetch_one(con)
             .await?
@@ -81,7 +88,7 @@ impl Item {
                 location,
                 status as "status: ItemStatus",
                 acc_cost
-                FROM items WHERE id = $1"#,
+            FROM items WHERE id = $1"#,
             id
         )
         .fetch_one(con)
@@ -110,5 +117,9 @@ impl Item {
         .await?;
 
         Ok(())
+    }
+
+    pub fn id(&self) -> Option<i64> {
+        self.id
     }
 }
