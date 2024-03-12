@@ -2,7 +2,10 @@ mod handlers;
 
 use sqlx::{postgres::PgListener, PgPool};
 
-use crate::{db_api, scheduler::handlers::order_handler};
+use crate::{
+    db_api,
+    scheduler::handlers::{item_handler, order_handler},
+};
 
 pub struct Scheduler {
     pool: PgPool,
@@ -27,6 +30,8 @@ impl Scheduler {
 
         tracing::debug!("Received new order: {:?}", order);
 
+        //TODO: may be better to extract the transactions from the handlers
+
         let piece = order.piece();
         let recipe = order_handler::gen_full_recipe(piece, pool);
         let order_items = order_handler::gen_items(order, pool);
@@ -39,6 +44,15 @@ impl Scheduler {
         // for each item generate its components and
         // transformations. Then schedule everything
         // and update the item status to "Scheduled"
+        let mut pair_vec = Vec::new();
+        for item in order_items {
+            let item_tf_pairs =
+                item_handler::gen_transformations(&recipe, item, pool).await?;
+
+            pair_vec.push(item_tf_pairs);
+        }
+
+        //TODO: schedule the transformations
 
         Ok(())
     }
