@@ -1,8 +1,7 @@
 CREATE TYPE order_status AS ENUM ('pending', 'scheduled', 'delivered', 'canceled');
 
 CREATE TABLE IF NOT EXISTS orders (
-  id bigint PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   client_id uuid NOT NULL REFERENCES clients(id),
   number int NOT NULL UNIQUE CHECK (number> 0),
   piece piece_kind NOT NULL REFERENCES pieces(code),

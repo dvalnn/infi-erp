@@ -1,15 +1,16 @@
 use sqlx::PgConnection;
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Transformation {
     id: Option<i64>,
-    material_id: i64,
-    product_id: i64,
+    material_id: Uuid,
+    product_id: Uuid,
     date: Option<i32>,
 }
 
 impl Transformation {
-    pub fn new(product_id: i64, material_id: i64) -> Self {
+    pub fn new(product_id: Uuid, material_id: Uuid) -> Self {
         Self {
             id: None,
             material_id,

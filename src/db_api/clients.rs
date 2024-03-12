@@ -10,13 +10,16 @@ use super::{orders::Order, pieces::FinalPiece};
 
 #[derive(Debug)]
 pub struct Client {
-    id: Option<Uuid>,
+    id: Uuid,
     name: String,
 }
 
 impl Client {
     fn new(name: String) -> Self {
-        Self { id: None, name }
+        Self {
+            id: Uuid::new_v4(),
+            name,
+        }
     }
 
     pub async fn query_by_name(
@@ -53,7 +56,7 @@ pub struct ClientOrder {
 }
 
 impl ClientOrder {
-    pub async fn insert_to_db(&self, pool: &PgPool) -> sqlx::Result<i64> {
+    pub async fn insert_to_db(&self, pool: &PgPool) -> sqlx::Result<Uuid> {
         let mut tx = pool.begin().await?;
 
         // check if client exists in db
@@ -62,32 +65,30 @@ impl ClientOrder {
         let client_id = match Client::query_by_name(&self.client_name, &mut tx)
             .await?
         {
-            Some(c) => c.id.expect("Existing client should always have uuid"),
+            Some(c) => c.id,
             None => {
                 tracing::info!("Inserting new client '{}'", &self.client_name);
                 Client::insert(&self.client_name, &mut tx).await?
             }
         };
 
-        let id = Order::insert(
-            Order::new(
-                client_id,
-                self.order_number,
-                self.work_piece,
-                self.quantity,
-                self.due_date,
-                self.early_penalty,
-                self.late_penalty,
-            ),
-            &mut tx,
-        )
-        .await?;
+        let new_order = Order::new(
+            client_id,
+            self.order_number,
+            self.work_piece,
+            self.quantity,
+            self.due_date,
+            self.early_penalty,
+            self.late_penalty,
+        );
+        Order::insert(&new_order, &mut tx).await?;
 
-        Ntc::notify(Ntc::NewOrder, &id.to_string(), &mut tx).await?;
+        Ntc::notify(Ntc::NewOrder, &new_order.id().to_string(), &mut tx)
+            .await?;
         tx.commit().await?;
 
-        tracing::info!("Inserted new order id: {}", id);
+        tracing::info!("Inserted new order id: {}", new_order.id());
 
-        Ok(id)
+        Ok(new_order.id())
     }
 }

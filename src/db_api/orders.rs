@@ -1,4 +1,9 @@
-use sqlx::{postgres::types::PgMoney, query, types::Uuid, PgConnection};
+use sqlx::{
+    postgres::{types::PgMoney, PgQueryResult},
+    query,
+    types::Uuid,
+    PgConnection,
+};
 
 use super::{pieces::FinalPiece, PieceKind};
 
@@ -24,8 +29,7 @@ impl std::fmt::Display for OrderStatus {
 
 #[derive(Debug, sqlx::FromRow)]
 pub struct Order {
-    id: Option<i64>,
-
+    id: Uuid,
     client_id: Uuid,
     number: i32,
     piece: FinalPiece,
@@ -50,7 +54,7 @@ impl Order {
         late_penalty: i64,
     ) -> Self {
         Self {
-            id: None,
+            id: Uuid::new_v4(),
             client_id,
             number,
             piece,
@@ -65,11 +69,12 @@ impl Order {
     }
 
     pub async fn insert(
-        order: Order,
+        order: &Order,
         con: &mut PgConnection,
-    ) -> sqlx::Result<i64> {
-        Ok(query!(
+    ) -> sqlx::Result<PgQueryResult> {
+        query!(
             r#"INSERT INTO orders (
+                id,
                 client_id,
                 number,
                 piece,
@@ -79,9 +84,9 @@ impl Order {
                 late_penalty,
                 placement_day
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-            RETURNING id
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             "#,
+            order.id,
             order.client_id,
             order.number,
             order.piece as FinalPiece, // makes the macro happy
@@ -91,13 +96,12 @@ impl Order {
             order.late_penalty,
             order.placement_day,
         )
-        .fetch_one(con)
-        .await?
-        .id)
+        .execute(con)
+        .await
     }
 
     pub async fn get_by_id(
-        id: i64,
+        id: Uuid,
         con: &mut PgConnection,
     ) -> sqlx::Result<Order> {
         //NOTE: the query_as macro dislikes the use of the * wildcard
@@ -120,7 +124,7 @@ impl Order {
         self.quantity
     }
 
-    pub fn id(&self) -> Option<i64> {
+    pub fn id(&self) -> Uuid {
         self.id
     }
 }

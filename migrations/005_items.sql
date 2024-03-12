@@ -2,10 +2,10 @@ CREATE DOMAIN item_status AS varchar(10)
 CHECK (VALUE IN ('pending', 'in_stock', 'delivered', 'consumed'));
 
 CREATE TABLE IF NOT EXISTS items (
-  id bigint PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 
   piece_kind piece_kind NOT NULL REFERENCES pieces(code),
-  order_id bigint REFERENCES orders(id),
+  order_id uuid REFERENCES orders(id),
   location char(2) REFERENCES warehouses(code),
   status item_status NOT NULL DEFAULT 'pending',
   acc_cost money NOT NULL DEFAULT 0,

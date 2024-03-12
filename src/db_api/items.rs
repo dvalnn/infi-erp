@@ -1,4 +1,5 @@
-use sqlx::postgres::types::PgMoney;
+use sqlx::postgres::{types::PgMoney, PgQueryResult};
+use uuid::Uuid;
 
 use super::PieceKind;
 
@@ -24,9 +25,9 @@ impl std::fmt::Display for ItemStatus {
 
 #[derive(Debug, Clone)]
 pub struct Item {
-    id: Option<i64>,
+    id: Uuid,
     piece_kind: PieceKind,
-    order_id: Option<i64>,
+    order_id: Option<Uuid>,
     location: Option<String>,
     status: ItemStatus,
     acc_cost: PgMoney,
@@ -35,7 +36,7 @@ pub struct Item {
 impl Item {
     pub fn new(piece_kind: PieceKind) -> Self {
         Self {
-            id: None,
+            id: Uuid::new_v4(),
             piece_kind,
             order_id: None,
             location: None,
@@ -44,39 +45,31 @@ impl Item {
         }
     }
 
-    pub fn assign_to_order(self, order_id: i64) -> Self {
-        Self {
-            order_id: Some(order_id),
-            ..self
-        }
+    pub fn set_order(self, order_id: Option<Uuid>) -> Self {
+        Self { order_id, ..self }
     }
 
     pub async fn insert(
-        mut self,
+        &self,
         con: &mut sqlx::PgConnection,
-    ) -> sqlx::Result<Self> {
-        self.id = Some(
-            sqlx::query!(
-                "INSERT INTO
-                items (piece_kind, order_id, location, status, acc_cost)
-                VALUES ($1, $2, $3, $4, $5)
-                RETURNING id",
-                self.piece_kind as PieceKind,
-                self.order_id,
-                self.location,
-                self.status as ItemStatus,
-                self.acc_cost
-            )
-            .fetch_one(con)
-            .await?
-            .id,
-        );
-
-        Ok(self)
+    ) -> sqlx::Result<PgQueryResult> {
+        sqlx::query!(
+            "INSERT INTO
+                items (id, piece_kind, order_id, location, status, acc_cost)
+                VALUES ($1, $2, $3, $4, $5, $6)",
+            self.id,
+            self.piece_kind as PieceKind,
+            self.order_id,
+            self.location,
+            self.status as ItemStatus,
+            self.acc_cost
+        )
+        .execute(con)
+        .await
     }
 
     pub async fn get_by_id(
-        id: i64,
+        id: Uuid,
         con: &mut sqlx::PgConnection,
     ) -> sqlx::Result<Self> {
         sqlx::query_as!(
@@ -119,7 +112,11 @@ impl Item {
         Ok(())
     }
 
-    pub fn id(&self) -> Option<i64> {
+    pub fn id(&self) -> Uuid {
         self.id
+    }
+
+    pub fn order_id(&self) -> Option<Uuid> {
+        self.order_id
     }
 }

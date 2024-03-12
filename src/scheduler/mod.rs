@@ -21,7 +21,7 @@ impl Scheduler {
         payload: &str,
         pool: &PgPool,
     ) -> anyhow::Result<()> {
-        let order_id = payload.parse::<i64>()?;
+        let order_id = uuid::Uuid::parse_str(payload)?;
 
         let order = {
             let mut con = pool.acquire().await?;
@@ -32,11 +32,14 @@ impl Scheduler {
 
         //TODO: may be better to extract the transactions from the handlers
 
-        let piece = order.piece();
-        let recipe = order_handler::gen_full_recipe(piece, pool);
-        let order_items = order_handler::gen_items(order, pool);
+        let recipe =
+            order_handler::get_full_recipe(order.piece(), pool).await?;
 
-        let (recipe, order_items) = tokio::try_join!(recipe, order_items)?;
+        let order_items = order_handler::gen_items(
+            order.piece(),
+            order.quantity(),
+            Some(order.id()),
+        )?;
 
         tracing::debug!("Generated recipe: {:?}", recipe);
         tracing::debug!("Generated order items: {:?}", order_items);
@@ -47,7 +50,7 @@ impl Scheduler {
         let mut pair_vec = Vec::new();
         for item in order_items {
             let item_tf_pairs =
-                item_handler::gen_transformations(&recipe, item, pool).await?;
+                item_handler::gen_transformations(&recipe, item);
 
             pair_vec.push(item_tf_pairs);
         }

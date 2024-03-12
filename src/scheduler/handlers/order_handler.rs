@@ -1,41 +1,29 @@
-use sqlx::PgPool;
+use anyhow::Result;
+use uuid::Uuid;
 
-use crate::db_api::{Item, Order, PieceKind, Recipe};
+use crate::db_api::{Item, PieceKind, Recipe};
 
-pub async fn gen_items(
-    order: Order,
-    pool: &PgPool,
-) -> anyhow::Result<Vec<Item>> {
-    let order_id = match order.id() {
-        Some(id) => id,
-        None => anyhow::bail!("Invalid order id"),
-    };
-
-    let mut tx = pool.begin().await?;
-
+pub fn gen_items(
+    piece: PieceKind,
+    quantity: i32,
+    id: Option<Uuid>,
+) -> Result<Vec<Item>> {
     // generate items from order
-    // insert items to db
-    let mut items = Vec::new();
-    for _ in 0..order.quantity() {
-        let item = Item::new(order.piece())
-            .assign_to_order(order_id)
-            .insert(&mut tx)
-            .await?;
+    let items = (0..quantity).fold(Vec::new(), |mut acc, _| {
+        let item = Item::new(piece);
+        acc.push(item);
+        acc
+    });
 
-        items.push(item);
-    }
-
-    tracing::info!("Created items: {:?} linked to order {:?}", items, order_id);
-
-    tx.commit().await?;
+    tracing::info!("Created items: {:?} linked to order {:?}", items, id);
 
     Ok(items)
 }
 
-pub(crate) async fn gen_full_recipe(
+pub(crate) async fn get_full_recipe(
     piece: PieceKind,
     pool: &sqlx::PgPool,
-) -> anyhow::Result<Vec<Recipe>> {
+) -> Result<Vec<Recipe>> {
     let mut product = piece;
     let mut full_recipe = Vec::new();
 
