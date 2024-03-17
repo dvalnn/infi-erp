@@ -10,7 +10,7 @@ pub fn gen_items(
 ) -> Result<Vec<Item>> {
     // generate items from order
     let items = (0..quantity).fold(Vec::new(), |mut acc, _| {
-        let item = Item::new(piece);
+        let item = Item::new(piece).set_order(id);
         acc.push(item);
         acc
     });
