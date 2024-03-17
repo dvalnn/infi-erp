@@ -38,7 +38,7 @@ pub fn describe_process(
         let transf = Transformation::new(product_id, mat.id());
 
         product_id = mat.id();
-        item_tf_pairs.push(Step::new(mat, transf, *recipe));
+        item_tf_pairs.push(Step::new(mat, transf, (*recipe).clone()));
     }
 
     tracing::trace!("new process: {:?}", item_tf_pairs);
