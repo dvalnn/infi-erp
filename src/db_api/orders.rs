@@ -116,6 +116,24 @@ impl Order {
         Ok(order)
     }
 
+    pub async fn schedule(
+        &self,
+        delivery_day: i32,
+        con: &mut PgConnection,
+    ) -> sqlx::Result<PgQueryResult> {
+        query!(
+            r#"UPDATE orders
+            SET delivery_day = $1,
+                status = $2
+            WHERE id = $3"#,
+            delivery_day,
+            OrderStatus::Scheduled as OrderStatus,
+            self.id,
+        )
+        .execute(con)
+        .await
+    }
+
     pub fn piece(&self) -> PieceKind {
         self.piece.into()
     }
@@ -126,5 +144,9 @@ impl Order {
 
     pub fn id(&self) -> Uuid {
         self.id
+    }
+
+    pub fn due_date(&self) -> i32 {
+        self.due_date
     }
 }
