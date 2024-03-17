@@ -45,8 +45,9 @@ impl Item {
         }
     }
 
-    pub fn set_order(self, order_id: Option<Uuid>) -> Self {
-        Self { order_id, ..self }
+    pub fn set_order(mut self, order_id: Option<Uuid>) -> Self {
+        self.order_id = order_id;
+        self
     }
 
     pub async fn insert(
