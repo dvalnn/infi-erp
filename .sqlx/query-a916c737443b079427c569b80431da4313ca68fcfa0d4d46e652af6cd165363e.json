@@ -1,0 +1,39 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO orders (\n                id,\n                client_id,\n                number,\n                piece,\n                quantity,\n                due_date,\n                early_penalty,\n                late_penalty,\n                placement_day\n            )\n            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Int4",
+        {
+          "Custom": {
+            "name": "piece_kind",
+            "kind": {
+              "Enum": [
+                "P1",
+                "P2",
+                "P3",
+                "P4",
+                "P5",
+                "P6",
+                "P7",
+                "P8",
+                "P9"
+              ]
+            }
+          }
+        },
+        "Int4",
+        "Int4",
+        "Money",
+        "Money",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a916c737443b079427c569b80431da4313ca68fcfa0d4d46e652af6cd165363e"
+}
