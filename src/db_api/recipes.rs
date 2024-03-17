@@ -13,7 +13,7 @@ pub enum ToolType {
     T6,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Recipe {
     pub id: i64,
     pub material_kind: PieceKind,

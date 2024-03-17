@@ -1,7 +1,7 @@
 use sqlx::PgConnection;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Transformation {
     id: Option<i64>,
     material_id: Uuid,
@@ -17,6 +17,10 @@ impl Transformation {
             product_id,
             date: None,
         }
+    }
+
+    pub fn set_date(&mut self, date: i32) {
+        self.date = Some(date);
     }
 
     pub async fn insert(
@@ -37,5 +41,17 @@ impl Transformation {
         );
 
         Ok(self)
+    }
+
+    pub fn material_id(&self) -> Uuid {
+        self.material_id
+    }
+
+    pub fn product_id(&self) -> Uuid {
+        self.product_id
+    }
+
+    pub fn date(&self) -> Option<i32> {
+        self.date
     }
 }
