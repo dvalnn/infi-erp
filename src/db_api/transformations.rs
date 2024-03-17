@@ -23,10 +23,7 @@ impl Transformation {
         self.date = Some(date);
     }
 
-    pub async fn insert(
-        mut self,
-        con: &mut PgConnection,
-    ) -> sqlx::Result<Self> {
+    pub async fn insert(&mut self, con: &mut PgConnection) -> sqlx::Result<()> {
         self.id = Some(
             sqlx::query!(
                 "INSERT INTO transformations (material_id, product_id)
@@ -40,7 +37,7 @@ impl Transformation {
             .id,
         );
 
-        Ok(self)
+        Ok(())
     }
 
     pub fn material_id(&self) -> Uuid {
@@ -53,5 +50,9 @@ impl Transformation {
 
     pub fn date(&self) -> Option<i32> {
         self.date
+    }
+
+    pub fn id(&self) -> Option<i64> {
+        self.id
     }
 }
