@@ -31,7 +31,7 @@ impl Scheduler {
 
         tracing::debug!("Received new order: {:?}", order);
 
-        let recipe =
+        let full_recipe =
             order_handler::get_full_recipe(order.piece(), pool).await?;
 
         let order_items: Vec<Item> = order_handler::gen_items(
@@ -40,14 +40,47 @@ impl Scheduler {
             Some(order.id()),
         )?;
 
-        tracing::debug!("Generated recipe: {:?}", recipe);
+        tracing::debug!("Generated recipe: {:?}", full_recipe);
         tracing::debug!("Generated order items: {:?}", order_items);
 
-        let mut blueprints =
-            ItemBlueprint::generate_scheduled(&order, order_items, recipe)?;
+        //TODO: query the mes for the current date
+        const CURRENT_DATE: i32 = 0;
+
+        let blueprints = order_items
+            .iter()
+            .filter_map(|item| {
+                let mut bp = match ItemBlueprint::generate(
+                    (*item).clone(),
+                    &full_recipe,
+                ) {
+                    Ok(bp) => bp,
+                    Err(e) => {
+                        tracing::error!("{:?}", e);
+                        return None;
+                    }
+                };
+
+                match bp.schedule(order.due_date(), CURRENT_DATE) {
+                    Ok(_) => Some(bp),
+                    Err(e) => {
+                        tracing::error!("{:?}", e);
+                        None
+                    }
+                }
+            })
+            .collect::<Vec<_>>();
+
+        if blueprints.len() < order.quantity() as usize {
+            anyhow::bail!(
+                "Cannot fullfill order {:?}, can only schedule {:?}/{:?} parts",
+                order.id(),
+                blueprints.len(),
+                order.quantity()
+            );
+        }
 
         let mut tx = pool.begin().await?;
-        for bp in blueprints.iter_mut() {
+        for mut bp in blueprints {
             bp.insert(&mut tx).await?;
         }
 
