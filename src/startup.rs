@@ -1,14 +1,18 @@
+use actix_web::HttpServer;
 use anyhow::anyhow;
 use tokio::net::UdpSocket;
 use tracing::Level;
 
-use crate::{scheduler::Scheduler, udp_listener::Listener};
+use crate::{
+    routes::check_health, scheduler::Scheduler, udp_listener::Listener,
+};
 
 pub struct AppBuilder {
     tracing_level: Level,
     database_url: String,
-    udp_address: Option<String>,
+    udp_addr: Option<String>,
     udp_buffer_size: Option<usize>,
+    http_addr: Option<String>,
 }
 
 impl AppBuilder {
@@ -16,14 +20,20 @@ impl AppBuilder {
         Self {
             tracing_level: Level::ERROR,
             database_url,
-            udp_address: None,
+            udp_addr: None,
             udp_buffer_size: None,
+            http_addr: None,
         }
     }
 
     pub fn with_udp_listener(mut self, port: u16, buffer_size: usize) -> Self {
-        self.udp_address = Some(format!("127.0.0.1:{}", port));
+        self.udp_addr = Some(format!("127.0.0.1:{}", port));
         self.udp_buffer_size = Some(buffer_size);
+        self
+    }
+
+    pub fn with_web_server(mut self, http_host: &str, http_port: u16) -> Self {
+        self.http_addr = Some(format!("{}:{}", http_host, http_port));
         self
     }
 
@@ -50,7 +60,7 @@ impl AppBuilder {
         tracing::info!("DB initialization successfull.");
 
         let udp_listener = if let (Some(address), Some(buffer_size)) =
-            (self.udp_address, self.udp_buffer_size)
+            (self.udp_addr, self.udp_buffer_size)
         {
             let socket = UdpSocket::bind(&address).await?;
             let listener = Listener::new(pool.clone(), socket, buffer_size);
@@ -62,6 +72,7 @@ impl AppBuilder {
         let scheduler = Scheduler::new(pool.clone(), notification_listener);
 
         Ok(App {
+            web_addr: self.http_addr,
             udp_listener,
             scheduler,
         })
@@ -70,6 +81,7 @@ impl AppBuilder {
 
 pub struct App {
     udp_listener: Option<Listener>,
+    web_addr: Option<String>,
     scheduler: Scheduler,
 }
 
@@ -82,6 +94,31 @@ impl App {
                 }
             });
         }
-        self.scheduler.run().await
+
+        tokio::spawn(async move { self.scheduler.run().await });
+
+        if let Some(addr) = self.web_addr {
+            let server = match HttpServer::new(|| {
+                actix_web::App::new().service(check_health)
+            })
+            .bind(addr.clone())
+            {
+                Ok(s) => {
+                    tracing::info!("actix-web listening on: {addr}");
+                    s
+                }
+                Err(e) => {
+                    tracing::error!("{e}");
+                    anyhow::bail!("Error binding to address: {addr}")
+                }
+            };
+
+            if let Err(e) = server.run().await {
+                tracing::error!("{e}");
+                anyhow::bail!("Error running web server: {e}");
+            }
+        }
+
+        Ok(())
     }
 }

@@ -9,11 +9,17 @@ async fn main() -> Result<(), anyhow::Error> {
             settings.application.udp_port,
             settings.application.udp_buffer_size,
         )
+        .with_web_server(
+            settings.application.http_host.as_str(),
+            settings.application.http_port,
+        )
         .with_tracing_level(tracing::Level::DEBUG)
         .build()
         .await?;
 
-    app.run().await?;
+    if let Err(e) = app.run().await {
+        tracing::error!("{:?}", e)
+    }
 
     Ok(())
 }

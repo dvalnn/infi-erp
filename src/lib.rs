@@ -1,5 +1,6 @@
 mod configuration;
 mod db_api;
+mod routes;
 mod scheduler;
 mod startup;
 mod udp_listener;

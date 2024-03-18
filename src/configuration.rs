@@ -21,6 +21,8 @@ pub struct Settings {
 pub struct ApplicationSettings {
     pub udp_port: u16,
     pub udp_buffer_size: usize,
+    pub http_port: u16,
+    pub http_host: String,
 }
 
 #[derive(serde::Deserialize)]
