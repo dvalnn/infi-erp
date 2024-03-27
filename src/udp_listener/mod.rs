@@ -29,7 +29,7 @@ impl Listener {
             let message = std::str::from_utf8(&self.buffer[..len])?;
             tracing::info!("Received message from {}: {}", addr, message);
 
-            let (_, orders) = match parser::parse_many(message) {
+            let (_, orders) = match parser::parse_command(message) {
                 Ok(o) => o,
                 Err(e) => {
                     tracing::error!("{e} while parsing orders");

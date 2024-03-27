@@ -1,4 +1,0 @@
-<ClientOrder>
-  <Client NameId="Kling Inc"/>
-  <Order Number="1" WorkPiece="P9" Quantity="3" DueDate="4" LatePen="€5,74" EarlyPen="€66,32"/>
-</ClientOrder>

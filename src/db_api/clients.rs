@@ -56,6 +56,26 @@ pub struct ClientOrder {
 }
 
 impl ClientOrder {
+    pub fn new(
+        client_name: String,
+        order_number: i32,
+        work_piece: FinalPiece,
+        quantity: i32,
+        due_date: i32,
+        late_penalty: i64,
+        early_penalty: i64,
+    ) -> Self {
+        Self {
+            client_name,
+            order_number,
+            work_piece,
+            quantity,
+            due_date,
+            late_penalty,
+            early_penalty,
+        }
+    }
+
     pub async fn insert_to_db(&self, pool: &PgPool) -> sqlx::Result<Uuid> {
         let mut tx = pool.begin().await?;
 

@@ -8,6 +8,30 @@ use nom::{
 
 use crate::db_api::{ClientOrder, FinalPiece};
 
+#[derive(Debug)]
+struct OrderParams {
+    number: i32,
+    piece: FinalPiece,
+    quantity: i32,
+    due_date: i32,
+    late_penalty: i64,
+    early_penalty: i64,
+}
+
+impl OrderParams {
+    fn into_client_order(self, client_name: impl ToString) -> ClientOrder {
+        ClientOrder {
+            client_name: client_name.to_string(),
+            order_number: self.number,
+            work_piece: self.piece,
+            quantity: self.quantity,
+            due_date: self.due_date,
+            late_penalty: self.late_penalty,
+            early_penalty: self.early_penalty,
+        }
+    }
+}
+
 fn parse_euros_and_cents(input: &str) -> anyhow::Result<i64> {
     let (euros_str, cents_str) = match input.split_once(',') {
         Some((euros, cents)) => (euros, cents),
@@ -48,15 +72,14 @@ fn parse_money(input: &str) -> anyhow::Result<i64> {
     }
 }
 
-fn try_new_client_order(
-    name: &str,
+fn try_new_order_params(
     number: &str,
     piece: &str,
     quantity: &str,
     due_date: &str,
     late_pen: &str,
     early_pen: &str,
-) -> Option<ClientOrder> {
+) -> Option<OrderParams> {
     let late_pen = match parse_money(late_pen) {
         Ok(pen) => pen,
         Err(e) => {
@@ -73,10 +96,9 @@ fn try_new_client_order(
         }
     };
 
-    Some(ClientOrder {
-        client_name: name.to_string(),
-        order_number: number.parse().ok()?,
-        work_piece: FinalPiece::try_from(piece).ok()?,
+    Some(OrderParams {
+        number: number.parse().ok()?,
+        piece: FinalPiece::try_from(piece).ok()?,
         quantity: quantity.parse().ok()?,
         due_date: due_date.parse().ok()?,
         late_penalty: late_pen,
@@ -98,17 +120,7 @@ fn remove_around_tag<'a>(
     Ok((input, ""))
 }
 
-fn parse(input: &str) -> IResult<&str, Option<ClientOrder>> {
-    // First get rid of any XML preamble
-    let (input, _) = remove_around_tag(input, "<ClientOrder>")?;
-
-    // Now parse the client name
-    let (input, name) = terminated(
-        delimited(tag("<Client NameId="), double_quotes, tag("/>")),
-        multispace0,
-    )(input)?;
-
-    // Now parse the order details
+fn parse_orders(input: &str) -> IResult<&str, Option<OrderParams>> {
     let (input, number) = preceded(
         pair(tag("<Order"), multispace1),
         delimited(tag("Number="), double_quotes, multispace1),
@@ -123,25 +135,43 @@ fn parse(input: &str) -> IResult<&str, Option<ClientOrder>> {
         delimited(tag("LatePen="), double_quotes, multispace1)(input)?;
     let (input, early_pen) =
         delimited(tag("EarlyPen="), double_quotes, multispace0)(input)?;
-
-    // Now parse the closing tag and any trailing whitespace
-    let (input, _) = remove_around_tag(input, "</ClientOrder>")?;
+    let (input, _) = terminated(tag("/>"), multispace0)(input)?;
 
     Ok((
         input,
-        try_new_client_order(
-            name, number, piece, quantity, due_date, late_pen, early_pen,
+        try_new_order_params(
+            number, piece, quantity, due_date, late_pen, early_pen,
         ),
     ))
 }
 
-pub fn parse_many(input: &str) -> IResult<&str, Vec<ClientOrder>> {
-    fold_many1(parse, Vec::new, |mut acc, order| {
-        if let Some(order) = order {
-            acc.push(order);
-        }
-        acc
-    })(input)
+pub fn parse_command(input: &str) -> IResult<&str, Vec<ClientOrder>> {
+    // First get rid of any XML preamble
+    let (input, _) = remove_around_tag(input, "<DOCUMENT>")?;
+
+    // Now parse the client name
+    let (input, name) = terminated(
+        delimited(tag("<Client NameId="), double_quotes, tag("/>")),
+        multispace0,
+    )(input)?;
+
+    let (input, orders) =
+        fold_many1(parse_orders, Vec::new, |mut acc, order| {
+            if let Some(order) = dbg!(order) {
+                acc.push(order);
+            }
+            acc
+        })(input)?;
+
+    // Now parse the closing tag and any trailing whitespace
+    let (input, _) = remove_around_tag(input, "</DOCUMENT>")?;
+
+    let client_orders = orders
+        .into_iter()
+        .map(|order| order.into_client_order(name))
+        .collect::<Vec<ClientOrder>>();
+
+    Ok((input, client_orders))
 }
 
 #[cfg(test)]
@@ -149,142 +179,54 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
-    use crate::db_api::{ClientOrder, FinalPiece};
-
-    struct Money {
-        euros: i64,
-        cents: i64,
-    }
-
-    impl Money {
-        const fn new(euros: i64, cents: i64) -> Self {
-            Self { euros, cents }
-        }
-    }
-
-    struct OrderParams {
-        name: &'static str,
-        number: i32,
-        piece: FinalPiece,
-        quantity: i32,
-        due_date: i32,
-        late_pen: Money,
-        early_pen: Money,
-    }
-
-    impl OrderParams {
-        const fn new(
-            name: &'static str,
-            number: i32,
-            piece: FinalPiece,
-            quantity: i32,
-            due_date: i32,
-            late_pen: Money,
-            early_pen: Money,
-        ) -> Self {
-            Self {
-                name,
-                number,
-                piece,
-                quantity,
-                due_date,
-                late_pen,
-                early_pen,
-            }
-        }
-
-        fn to_client_order(&self) -> ClientOrder {
-            ClientOrder {
-                client_name: self.name.to_string(),
-                order_number: self.number,
-                work_piece: self.piece,
-                quantity: self.quantity,
-                due_date: self.due_date,
-                late_penalty: self.late_pen.euros * 100 + self.late_pen.cents,
-                early_penalty: self.early_pen.euros * 100
-                    + self.early_pen.cents,
-            }
-        }
-
-        fn as_mock_input(&self) -> String {
-            format!(
-                r#"<ClientOrder>
-            <Client NameId="{0}"/>
-            <Order Number="{1}"
-                WorkPiece="{2}"
-                Quantity="{3}"
-                DueDate="{4}"
-                LatePen="€{5},{6}"
-                EarlyPen="€{7},{8}"/>
-            </ClientOrder>"#,
-                self.name,
-                self.number,
-                self.piece,
-                self.quantity,
-                self.due_date,
-                self.late_pen.euros,
-                self.late_pen.cents,
-                self.early_pen.euros,
-                self.early_pen.cents,
-            )
-        }
-    }
-
-    static MOCK_ORDERS: [OrderParams; 3] = [
-        OrderParams::new(
-            "John Doe",
-            1,
-            FinalPiece::P5,
-            10,
-            31,
-            Money::new(0, 10),
-            Money::new(50, 32),
-        ),
-        OrderParams::new(
-            "Kling Inc",
-            1,
-            FinalPiece::P9,
-            3,
-            4,
-            Money::new(5, 74),
-            Money::new(66, 32),
-        ),
-        OrderParams::new(
-            "John Doe",
-            2,
-            FinalPiece::P5,
-            10,
-            31,
-            Money::new(20, 0),
-            Money::new(0, 0),
-        ),
-    ];
+    use crate::db_api::ClientOrder;
 
     #[rstest]
-    #[case(&MOCK_ORDERS[0].as_mock_input(), Some(MOCK_ORDERS[0].to_client_order()))]
-    #[case(&MOCK_ORDERS[1].as_mock_input(), Some(MOCK_ORDERS[1].to_client_order()))]
-    #[case(&MOCK_ORDERS[2].as_mock_input(), Some(MOCK_ORDERS[2].to_client_order()))]
-    fn test_parse(#[case] input: &str, #[case] expected: Option<ClientOrder>) {
-        let (_, result) = parse(input).unwrap();
-        assert_eq!(result, expected);
-    }
+    #[case("tests/mock_commands/command1.xml",
+        vec![
+            ClientOrder::new("Client AA".to_string(), 18, FinalPiece::P5, 8, 7, 1000, 500),
+            ClientOrder::new("Client AA".to_string(), 19, FinalPiece::P6, 1, 4, 1000, 1000)
+        ]
+    )]
+    #[case("tests/mock_commands/command2a.xml",
+        vec![
+            ClientOrder::new("Client AA".to_string(), 41, FinalPiece::P5, 3, 10, 1000, 500),
+            ClientOrder::new("Client AA".to_string(), 42, FinalPiece::P9, 2, 8, 1000, 500)
+        ]
+    )]
+    #[case("tests/mock_commands/command2b.xml",
+        vec![
+            ClientOrder::new("Client BB".to_string(), 47, FinalPiece::P6, 8, 6, 1000, 500),
+            ClientOrder::new("Client BB".to_string(), 46, FinalPiece::P7, 2, 6, 1000, 500)
+        ]
+    )]
+    #[case("tests/mock_commands/command3.xml",
+        vec![
+            ClientOrder::new("Client CC".to_string(), 905, FinalPiece::P5, 3, 8, 1000, 500),
+            ClientOrder::new("Client CC".to_string(), 906, FinalPiece::P6, 2, 8, 1000, 200)
+        ]
+    )]
+    #[case("tests/mock_commands/command4.xml",
+        vec![
+            ClientOrder::new("Client BB".to_string(), 42, FinalPiece::P7, 3, 12, 1000, 500),
+            ClientOrder::new("Client BB".to_string(), 43, FinalPiece::P7, 2, 12, 1500, 500),
+            ClientOrder::new("Client BB".to_string(), 44, FinalPiece::P6, 4, 12, 1500, 200),
+            ClientOrder::new("Client BB".to_string(), 45, FinalPiece::P5, 8, 11, 1500, 200),
+        ]
+    )]
+    #[case("tests/mock_commands/command5.xml",
+        vec![
+            ClientOrder::new("Client CC".to_string(), 991, FinalPiece::P9, 5, 10, 2000, 500),
+        ]
+    )]
+    fn parse_mock_command(
+        #[case] filepath: String,
+        #[case] expected: Vec<ClientOrder>,
+    ) {
+        let input = std::fs::read_to_string(filepath).expect("File not found");
 
-    #[test]
-    fn test_parse_many() {
-        let input = format!(
-            "--I AM PREAMBLE-- {0}{1} --I AM SOME MUMBO JUMBO-- {2} -- I AM POSTAMBLE--",
-            MOCK_ORDERS[0].as_mock_input(),
-            MOCK_ORDERS[1].as_mock_input(),
-            MOCK_ORDERS[2].as_mock_input()
-        );
+        let (_, orders) = parse_command(&input).unwrap();
 
-        let expected = vec![
-            MOCK_ORDERS[0].to_client_order(),
-            MOCK_ORDERS[1].to_client_order(),
-            MOCK_ORDERS[2].to_client_order(),
-        ];
-
-        let (_, result) = parse_many(&input).unwrap();
-        assert_eq!(result, expected);
+        assert_eq!(orders, expected);
     }
 }

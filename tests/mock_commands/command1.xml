@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<!DOCTYPE PRODUCTION_ORDERS [
+<!ELEMENT DOCUMENT (Client, Order*)>
+<!ATTLIST Client
+          NameId    (CDATA) #REQUIRED
+>
+<!ATTLIST Order
+          Number    (CDATA) #REQUIRED
+          WorkPiece (CDATA) #REQUIRED
+          Quantity  (CDATA) #REQUIRED
+          DueDate   (CDATA) #REQUIRED
+          LatePen   (CDATA) #REQUIRED
+          EarlyPen  (CDATA) #REQUIRED
+>
+]>
+<DOCUMENT>
+<Client NameId="Client AA"/>
+<Order Number="18" WorkPiece="P5" Quantity="8" DueDate="7" LatePen="10" EarlyPen="5"/>
+<Order Number="19" WorkPiece="P6" Quantity="1" DueDate="4" LatePen="10" EarlyPen="10"/>
+</DOCUMENT>
