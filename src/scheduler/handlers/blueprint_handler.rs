@@ -1,6 +1,6 @@
 use crate::{
     db_api::{Item, Recipe},
-    scheduler::Scheduler,
+    scheduler::TIME_IN_DAY,
 };
 
 use super::item_handler::{self};
@@ -38,7 +38,7 @@ impl ItemBlueprint {
         // the process
         for step in self.process.iter_mut() {
             duration_acc += step.recipe.operation_time;
-            if duration_acc > Scheduler::TIME_IN_DAY {
+            if duration_acc > TIME_IN_DAY {
                 schedule_day -= 1;
                 duration_acc = 0;
             }
@@ -69,7 +69,7 @@ impl ItemBlueprint {
         // transformations. Then schedule everything
         // and update the item status to "Scheduled"
         let process =
-            match item_handler::describe_process(&full_recipe, item.clone()) {
+            match item_handler::describe_process(full_recipe, item.clone()) {
                 Ok(proc) => proc,
                 Err(e) => anyhow::bail!("{:?}", e),
             };
