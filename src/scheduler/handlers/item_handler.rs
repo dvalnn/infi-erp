@@ -35,7 +35,7 @@ pub fn describe_process(
     let mut product_id = item.id();
     for recipe in full_recipe {
         let mat = Item::new(recipe.material_kind).set_order(item.order_id());
-        let transf = Transformation::new(product_id, mat.id());
+        let transf = Transformation::new(product_id, mat.id(), recipe.id);
 
         product_id = mat.id();
         item_tf_pairs.push(Step::new(mat, transf, (*recipe).clone()));
