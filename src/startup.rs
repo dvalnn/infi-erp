@@ -1,10 +1,13 @@
-use actix_web::HttpServer;
+use actix_web::{web::Data, HttpServer};
 use anyhow::anyhow;
+use sqlx::PgPool;
 use tokio::net::UdpSocket;
 use tracing::Level;
 
 use crate::{
-    routes::check_health, scheduler::Scheduler, udp_listener::Listener,
+    routes::{check_health, get_date, post_date},
+    scheduler::Scheduler,
+    udp_listener::Listener,
 };
 
 pub struct AppBuilder {
@@ -73,6 +76,7 @@ impl AppBuilder {
 
         Ok(App {
             web_addr: self.http_addr,
+            pool,
             udp_listener,
             scheduler,
         })
@@ -82,6 +86,7 @@ impl AppBuilder {
 pub struct App {
     udp_listener: Option<Listener>,
     web_addr: Option<String>,
+    pool: PgPool,
     scheduler: Scheduler,
 }
 
@@ -98,8 +103,12 @@ impl App {
         tokio::spawn(async move { self.scheduler.run().await });
 
         if let Some(addr) = self.web_addr {
-            let server = match HttpServer::new(|| {
-                actix_web::App::new().service(check_health)
+            let server = match HttpServer::new(move || {
+                actix_web::App::new()
+                    .service(check_health)
+                    .service(get_date)
+                    .service(post_date)
+                    .app_data(Data::new(self.pool.clone()))
             })
             .bind(addr.clone())
             {
