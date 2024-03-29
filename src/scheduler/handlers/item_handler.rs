@@ -25,10 +25,9 @@ pub fn describe_process(
         anyhow::bail!("No recipes to follow");
     };
 
-    match RawMaterial::try_from(last_step.material_kind) {
-        Ok(_) => (),
-        Err(_) => tracing::warn!("full recipe is not exaustive!"),
-    }
+    if RawMaterial::try_from(last_step.material_kind).is_err() {
+        anyhow::bail!("full recipe is not exaustive!")
+    };
 
     let mut item_tf_pairs = Vec::new();
 

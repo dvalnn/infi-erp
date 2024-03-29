@@ -1,7 +1,8 @@
+use serde::Serialize;
 use subenum::subenum;
 
 #[subenum(FinalPiece, InterPiece, RawMaterial)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, sqlx::Type)]
 #[sqlx(type_name = "piece_kind")]
 pub enum PieceKind {
     #[subenum(RawMaterial)]

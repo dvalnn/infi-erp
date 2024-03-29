@@ -1,8 +1,9 @@
+use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
 use super::PieceKind;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, sqlx::Type)]
 #[sqlx(type_name = "tool_type")]
 pub enum ToolType {
     T1,
@@ -13,7 +14,7 @@ pub enum ToolType {
     T6,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Recipe {
     pub id: i64,
     pub material_kind: PieceKind,

@@ -107,13 +107,25 @@ impl Order {
         //NOTE: the query_as macro dislikes the use of the * wildcard
         //      due to the custom enum types.
         //      So i'm using the query_as function in this scenario.
-        let order: Order =
-            sqlx::query_as(r#"SELECT * FROM orders WHERE id = $1"#)
-                .bind(id)
-                .fetch_one(con)
-                .await?;
+        //      instead of the macro query_as!
+        sqlx::query_as(r#"SELECT * FROM orders WHERE id = $1"#)
+            .bind(id)
+            .fetch_one(con)
+            .await
+    }
 
-        Ok(order)
+    pub async fn get_id_by_due_date(
+        day: i32,
+        con: &mut PgConnection,
+    ) -> sqlx::Result<Vec<Uuid>> {
+        Ok(
+            sqlx::query!(r#"SELECT id FROM orders WHERE due_date = $1"#, day)
+                .fetch_all(con)
+                .await?
+                .iter()
+                .map(|row| row.id)
+                .collect::<Vec<Uuid>>(),
+        )
     }
 
     pub async fn schedule(

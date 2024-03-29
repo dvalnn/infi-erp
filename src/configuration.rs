@@ -1,4 +1,7 @@
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use config::Config;
+use sqlx::{migrate, Connection, PgPool};
 
 pub fn get_configuration() -> Result<Settings, config::ConfigError> {
     let settings = Config::builder()
@@ -51,5 +54,38 @@ impl DatabaseSettings {
             "postgres://{}:{}@{}:{}",
             self.username, self.password, self.host, self.port
         )
+    }
+
+    pub async fn create_test_db(self) -> PgPool {
+        let mut connection =
+            sqlx::PgConnection::connect(&self.connection_string_without_db())
+                .await
+                .expect("Failed to connect to the database");
+
+        let db_name = format!(
+            "test_{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_micros()
+        );
+
+        sqlx::query(format!(r#"CREATE DATABASE "{}";"#, db_name).as_str())
+            .execute(&mut connection)
+            .await
+            .expect("Failed to create test database");
+
+        let new_db_url =
+            format!("{}/{}", self.connection_string_without_db(), db_name);
+
+        let pool = PgPool::connect_lazy(&new_db_url)
+            .expect("Failed to connect to the test database");
+
+        migrate!("./migrations")
+            .run(&pool)
+            .await
+            .expect("Failed to run migrations");
+
+        pool
     }
 }

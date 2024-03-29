@@ -1,5 +1,9 @@
+use serde::Serialize;
 use sqlx::PgConnection;
 use uuid::Uuid;
+
+use super::PieceKind;
+use super::ToolType;
 
 #[derive(Debug, Clone)]
 pub struct Transformation {
@@ -58,5 +62,39 @@ impl Transformation {
 
     pub fn id(&self) -> Option<i64> {
         self.id
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct TransformationDetails {
+    pub transformation_id: i64,
+    pub material_kind: PieceKind,
+    pub product_kind: PieceKind,
+    pub tool: ToolType,
+    pub operation_time: i64,
+}
+
+impl TransformationDetails {
+    pub async fn get_by_date(
+        day: i32,
+        con: &mut PgConnection,
+    ) -> sqlx::Result<Vec<TransformationDetails>> {
+        sqlx::query_as!(
+            TransformationDetails,
+            r#"
+            SELECT
+            transformations.id as "transformation_id",
+            recipes.material_kind as "material_kind: PieceKind",
+            recipes.product_kind as "product_kind: PieceKind",
+            recipes.tool as "tool: ToolType",
+            recipes.operation_time
+            FROM transformations
+            JOIN recipes ON transformations.recipe_id = recipes.id
+            WHERE transformations.date = $1
+            "#,
+            day
+        )
+        .fetch_all(con)
+        .await
     }
 }
