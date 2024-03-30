@@ -157,7 +157,7 @@ pub fn parse_command(input: &str) -> IResult<&str, Vec<ClientOrder>> {
 
     let (input, orders) =
         fold_many1(parse_orders, Vec::new, |mut acc, order| {
-            if let Some(order) = dbg!(order) {
+            if let Some(order) = order {
                 acc.push(order);
             }
             acc

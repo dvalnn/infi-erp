@@ -15,7 +15,8 @@ pub fn gen_items(
         acc
     });
 
-    tracing::info!("Created items: {:?} linked to order {:?}", items, id);
+    tracing::info!("Created {} items linked to order id {:?}", items.len(), id);
+    tracing::trace!("Items: {:?}", items);
 
     Ok(items)
 }

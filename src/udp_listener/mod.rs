@@ -27,7 +27,9 @@ impl Listener {
         loop {
             let (len, addr) = self.socket.recv_from(&mut self.buffer).await?;
             let message = std::str::from_utf8(&self.buffer[..len])?;
-            tracing::info!("Received message from {}: {}", addr, message);
+
+            tracing::info!("Received udp message from {}", addr);
+            tracing::trace!("Received message: {}", message);
 
             let (_, orders) = match parser::parse_command(message) {
                 Ok(o) => o,
