@@ -1,4 +1,7 @@
-use std::collections::HashSet;
+use std::{
+    collections::HashSet,
+    fmt::{Debug, Display},
+};
 
 use actix_web::{
     get, post,
@@ -10,15 +13,18 @@ use sqlx::{postgres::types::PgMoney, PgPool};
 use uuid::Uuid;
 
 use crate::{
-    db_api::{Item, Order, OrderStatus, TransformationDetails},
+    db_api::{Item, Order, OrderStatus, Transformation, TransformationDetails},
     scheduler::CURRENT_DATE,
 };
 
-pub fn internal_server_error(
-    e: impl std::fmt::Debug + std::fmt::Display,
-) -> HttpResponse {
+fn internal_server_error(e: impl Debug + Display) -> HttpResponse {
     tracing::error!("{:?}", e);
     HttpResponse::InternalServerError().body(format!("{e}"))
+}
+
+fn bad_request(e: impl Debug + Display) -> HttpResponse {
+    tracing::error!("{:?}", e);
+    HttpResponse::BadRequest().body(format!("{e}"))
 }
 
 #[get("/CheckHealth")]
@@ -34,27 +40,21 @@ struct DayForm {
 
 #[get("/Date")]
 pub async fn get_date() -> impl Responder {
-    let current_date = match CURRENT_DATE.read() {
-        Ok(date) => date,
-        Err(e) => {
-            tracing::error!("{:?}", e);
-            return HttpResponse::InternalServerError().body(format!("{e}"));
-        }
-    };
-
-    HttpResponse::Ok().body(format!("{}", *current_date))
+    match CURRENT_DATE.read() {
+        Ok(date) => HttpResponse::Ok().body(format!("{}", *date)),
+        Err(e) => internal_server_error(e),
+    }
 }
 
 #[post("/Date")]
 pub async fn post_date(form: Form<DayForm>) -> impl Responder {
-    let mut current_date = match CURRENT_DATE.write() {
-        Ok(date) => date,
-        Err(e) => {
-            return HttpResponse::InternalServerError().body(format!("{e}"))
+    match CURRENT_DATE.write() {
+        Ok(mut date) => {
+            *date = form.day;
+            HttpResponse::Created().finish()
         }
-    };
-    *current_date = form.day;
-    HttpResponse::Created().finish()
+        Err(e) => internal_server_error(e),
+    }
 }
 
 #[get("/Transformations")]
@@ -68,31 +68,37 @@ pub async fn get_daily_transformations(
     };
 
     let day = form.day as i32;
-    let tranfs = match TransformationDetails::get_by_day(day, &mut tx).await {
-        Ok(details) => details,
-        Err(e) => {
-            tracing::error!("{:?}", e);
-            return HttpResponse::InternalServerError().body(format!("{e}"));
-        }
-    };
+    let tranfs =
+        match TransformationDetails::get_pending_by_day(day, &mut tx).await {
+            Ok(details) => details,
+            Err(e) => return internal_server_error(e),
+        };
 
-    tracing::info!("Found {} transformations due on day {}", tranfs.len(), day);
+    tracing::info!(
+        "Found {} pending transformations due on day {}",
+        tranfs.len(),
+        day
+    );
 
     let mut order_ids = HashSet::new();
     for tf in &tranfs {
         let id = match Order::get_id_by_product(tf.product_id, &mut tx).await {
+            Err(e) => return internal_server_error(e),
             Ok(Some(order)) => order,
             Ok(None) => {
-                return HttpResponse::InternalServerError()
-                    .body("Product not associated with an order");
-            }
-
-            Err(e) => {
-                return internal_server_error(e);
+                tracing::warn!(
+                    "No order found for product id {}",
+                    tf.product_id
+                );
+                continue;
             }
         };
 
-        order_ids.insert(id);
+        // Skip if this order was already seen on this run
+        // Saves some uncessary work
+        if !order_ids.insert(id) {
+            continue;
+        }
 
         let order = match Order::get_by_id(id, &mut tx).await {
             Ok(order) => order,
@@ -111,7 +117,7 @@ pub async fn get_daily_transformations(
                 }
             }
             OrderStatus::Producing => continue,
-            _ => todo!("Handle other statuses"),
+            _ => todo!("Handle other order statuses"),
         }
     }
 
@@ -127,6 +133,7 @@ pub async fn get_daily_transformations(
 #[derive(Debug, Deserialize)]
 #[cfg_attr(test, derive(serde::Serialize))]
 struct TransfCompletionFrom {
+    transf_id: i64,
     material_id: Uuid,
     product_id: Uuid,
     line_id: String,
@@ -140,40 +147,31 @@ pub async fn post_transformation_completion(
 ) -> impl Responder {
     let mut tx = match pool.begin().await {
         Ok(tx) => tx,
-        Err(e) => {
-            return internal_server_error(e);
-        }
+        Err(e) => return internal_server_error(e),
     };
 
-    let m_query = Item::get_by_id(form.material_id, &mut tx).await;
-    let p_query = Item::get_by_id(form.product_id, &mut tx).await;
-
-    let (material, product) = match (m_query, p_query) {
+    let m_query_result = Item::get_by_id(form.material_id, &mut tx).await;
+    let p_query_result = Item::get_by_id(form.product_id, &mut tx).await;
+    let (material, product) = match (m_query_result, p_query_result) {
         (Ok(material), Ok(product)) => (material, product),
-        (Err(e), _) | (_, Err(e)) => {
-            return internal_server_error(e);
-        }
+        (Err(e), _) | (_, Err(e)) => return internal_server_error(e),
     };
 
-    let material = material.consume(form.line_id.clone());
-    let product = match product.produce(
-        material.get_cost() + PgMoney(form.time_taken * 100), //NOTE: 100 is the cost per unit time
-        form.line_id.clone(),
-    ) {
-        Ok(product) => product,
-        Err(e) => {
-            tracing::error!("{:?}", e);
-            return HttpResponse::BadRequest().body(format!("{e}"));
-        }
+    let new_cost = material.get_cost() + PgMoney(form.time_taken * 100);
+    let p_action_result = product.produce(new_cost, form.line_id.clone());
+    let m_action_result = material.consume(form.line_id.clone());
+    let (product, material) = match (p_action_result, m_action_result) {
+        (Ok(p), Ok(m)) => (p, m),
+        (Err(e), _) | (_, Err(e)) => return bad_request(e),
     };
 
-    let m_query = material.update(&mut tx).await;
-    let p_query = product.update(&mut tx).await;
-
-    let tx_result = match (m_query, p_query) {
-        (Ok(_), Ok(_)) => tx.commit().await,
-        (Err(e), _) | (_, Err(e)) => {
-            return internal_server_error(e);
+    let m_result = material.update(&mut tx).await;
+    let p_result = product.update(&mut tx).await;
+    let tf_result = Transformation::complete(form.transf_id, &mut tx).await;
+    let tx_result = match (m_result, p_result, tf_result) {
+        (Ok(_), Ok(_), Ok(_)) => tx.commit().await,
+        (Err(e), _, _) | (_, Err(e), _) | (_, _, Err(e)) => {
+            return internal_server_error(e)
         }
     };
 
@@ -206,19 +204,15 @@ pub async fn post_warehouse_action(
 ) -> impl Responder {
     let mut connection = match pool.acquire().await {
         Ok(conn) => conn,
-        Err(e) => {
-            return internal_server_error(e);
-        }
+        Err(e) => return internal_server_error(e),
     };
 
     let item = match Item::get_by_id(form.item_id, &mut connection).await {
         Ok(item) => item,
-        Err(e) => {
-            return internal_server_error(e);
-        }
+        Err(e) => return internal_server_error(e),
     };
 
-    let item = match &form.action_type {
+    let item_action_result = match &form.action_type {
         WarehouseAction::Entry(warehouse_code) => {
             item.enter_warehouse(warehouse_code)
         }
@@ -227,12 +221,35 @@ pub async fn post_warehouse_action(
         }
     };
 
+    let item = match item_action_result {
+        Ok(item) => item,
+        Err(e) => return bad_request(e),
+    };
+
     match item.update(&mut connection).await {
         Ok(_) => HttpResponse::Created().finish(),
         Err(e) => internal_server_error(e),
     }
 }
 
+#[derive(Debug, Deserialize)]
+#[cfg_attr(test, derive(serde::Serialize))]
+struct MaterialArrivalFrom {
+    _shipment_id: Uuid,
+    _day: u32,
+}
+
+#[post("/Materials/Arrivals")]
+pub async fn post_material_arrival(
+    _form: Form<MaterialArrivalFrom>,
+    _pool: Data<PgPool>,
+) -> impl Responder {
+    // let raw_materials = todo!("query raw_material_arrivals");
+    HttpResponse::NotImplemented()
+}
+
+// TODO: material arrivals to warehouse
+// TODO: delivery confirmations
 #[cfg(test)]
 mod tests {
     use super::{check_health, DayForm};

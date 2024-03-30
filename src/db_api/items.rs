@@ -69,25 +69,55 @@ impl Item {
         Ok(self)
     }
 
-    pub fn consume(mut self, production_line: impl ToString) -> Self {
+    pub fn consume(
+        mut self,
+        production_line: impl ToString,
+    ) -> anyhow::Result<Self> {
+        if self.status != ItemStatus::InTransit {
+            anyhow::bail!(format!("Item is {}, cannot consume", self.status));
+        }
+
         self.status = ItemStatus::Consumed;
         self.warehouse = None;
         self.production_line = Some(production_line.to_string());
-        self
+        Ok(self)
     }
 
-    pub fn enter_warehouse(mut self, warehouse: impl ToString) -> Self {
+    pub fn enter_warehouse(
+        mut self,
+        warehouse: impl ToString,
+    ) -> anyhow::Result<Self> {
+        if self.status != ItemStatus::InTransit {
+            anyhow::bail!(format!(
+                "Item is {}, cannot enter warehouse",
+                self.status
+            ));
+        }
+
         self.status = ItemStatus::InStock;
         self.warehouse = Some(warehouse.to_string());
         self.production_line = None;
-        self
+        Ok(self)
     }
 
-    pub fn exit_warehouse(mut self, production_line: impl ToString) -> Self {
+    pub fn exit_warehouse(
+        mut self,
+        production_line: impl ToString,
+    ) -> anyhow::Result<Self> {
+        if self.status != ItemStatus::InStock {
+            //TODO: remove this log and uncomment the bail
+            // after raw material requests are implemented
+            tracing::warn!("Allowing {} item to leave warehouse", self.status);
+            // anyhow::bail!(format!(
+            //     "Item is {}, cannot exit warehouse",
+            //     self.status
+            // ));
+        }
+
         self.status = ItemStatus::InTransit;
         self.warehouse = None;
         self.production_line = Some(production_line.to_string());
-        self
+        Ok(self)
     }
 
     pub fn get_cost(&self) -> PgMoney {

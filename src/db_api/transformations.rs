@@ -49,6 +49,18 @@ impl Transformation {
         Ok(())
     }
 
+    pub async fn complete(id: i64, con: &mut PgConnection) -> sqlx::Result<()> {
+        sqlx::query!(
+            r#"UPDATE transformations
+            SET status = 'completed'
+            WHERE id = $1"#,
+            id
+        )
+        .execute(con)
+        .await?;
+        Ok(())
+    }
+
     pub async fn get_by_id(
         id: i64,
         con: &mut PgConnection,
@@ -56,7 +68,13 @@ impl Transformation {
         sqlx::query_as!(
             Transformation,
             r#"
-            SELECT * FROM transformations
+            SELECT
+                id,
+                material_id,
+                product_id,
+                recipe_id,
+                date
+            FROM transformations
             WHERE id = $1
             "#,
             id
@@ -94,7 +112,7 @@ pub struct TransformationDetails {
 }
 
 impl TransformationDetails {
-    pub async fn get_by_day(
+    pub async fn get_pending_by_day(
         day: i32,
         con: &mut PgConnection,
     ) -> sqlx::Result<Vec<TransformationDetails>> {
@@ -116,7 +134,7 @@ impl TransformationDetails {
 
             JOIN recipes ON transformations.recipe_id = recipes.id
 
-            WHERE transformations.date = $1
+            WHERE transformations.date = $1 AND transformations.status = 'pending'
             "#,
             day
         )

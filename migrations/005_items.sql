@@ -11,11 +11,5 @@ CREATE TABLE IF NOT EXISTS items (
   status item_status NOT NULL DEFAULT 'pending',
   acc_cost money NOT NULL DEFAULT 0,
 
-  CHECK (
-          (((status = 'in_stock') OR (status = 'in_transit')) AND warehouse IS NOT NULL)
-          OR
-          (warehouse IS NULL)
-        ),
-
   CHECK (( status = 'delivered' AND order_id IS NOT NULL) OR (status <> 'delivered'))
 );
