@@ -1,4 +1,10 @@
-CREATE TYPE order_status AS ENUM ('pending', 'scheduled', 'delivered', 'canceled');
+CREATE TYPE order_status AS ENUM (
+  'pending',
+  'scheduled',
+  'producing',
+  'completed',
+  'delivered',
+  'canceled');
 
 CREATE TABLE IF NOT EXISTS orders (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -17,7 +23,8 @@ CREATE TABLE IF NOT EXISTS orders (
   UNIQUE (client_id, number),
 
   CHECK (
-    (status IN ('pending', 'canceled') AND delivery_day IS NULL) OR
-    (status IN ('scheduled', 'delivered') AND delivery_day IS NOT NULL)
+      (status IN ('pending', 'canceled') AND delivery_day IS NULL)
+    OR
+      delivery_day IS NOT NULL
   )
 );

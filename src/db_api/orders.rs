@@ -5,13 +5,17 @@ use sqlx::{
     PgConnection,
 };
 
+use crate::scheduler::CURRENT_DATE;
+
 use super::{pieces::FinalPiece, PieceKind};
 
-#[derive(Debug, sqlx::Type)]
+#[derive(Debug, Clone, Copy, PartialEq, sqlx::Type)]
 #[sqlx(type_name = "order_status", rename_all = "lowercase")]
 pub enum OrderStatus {
     Pending,
     Scheduled,
+    Producing,
+    Completed,
     Delivered,
     Canceled,
 }
@@ -21,6 +25,8 @@ impl std::fmt::Display for OrderStatus {
         match self {
             OrderStatus::Pending => write!(f, "pending"),
             OrderStatus::Scheduled => write!(f, "scheduled"),
+            OrderStatus::Producing => write!(f, "producing"),
+            OrderStatus::Completed => write!(f, "completed"),
             OrderStatus::Delivered => write!(f, "delivered"),
             OrderStatus::Canceled => write!(f, "canceled"),
         }
@@ -63,7 +69,7 @@ impl Order {
             early_penalty: PgMoney(early_penalty),
             late_penalty: PgMoney(late_penalty),
             status: OrderStatus::Pending,
-            placement_day: 1, //TODO: get current day
+            placement_day: 0,
             delivery_day: None,
         }
     }
@@ -72,6 +78,8 @@ impl Order {
         order: &Order,
         con: &mut PgConnection,
     ) -> sqlx::Result<PgQueryResult> {
+        let placement_day = *CURRENT_DATE.read().expect("Lock is poisoned");
+
         query!(
             r#"INSERT INTO orders (
                 id,
@@ -89,12 +97,12 @@ impl Order {
             order.id,
             order.client_id,
             order.number,
-            order.piece as FinalPiece, // makes the macro happy
+            order.piece as FinalPiece, // cast keeps the quary! macro happy
             order.quantity,
             order.due_date,
             order.early_penalty,
             order.late_penalty,
-            order.placement_day,
+            placement_day as i32,
         )
         .execute(con)
         .await
@@ -126,6 +134,35 @@ impl Order {
                 .map(|row| row.id)
                 .collect::<Vec<Uuid>>(),
         )
+    }
+
+    pub async fn get_id_by_product(
+        product_id: Uuid,
+        con: &mut PgConnection,
+    ) -> sqlx::Result<Option<Uuid>> {
+        Ok(sqlx::query!(
+            r#"SELECT order_id FROM items WHERE id = $1"#,
+            product_id
+        )
+        .fetch_one(con)
+        .await?
+        .order_id)
+    }
+
+    pub async fn production_start(
+        &self,
+        con: &mut PgConnection,
+    ) -> sqlx::Result<PgQueryResult> {
+        tracing::info!("Starting production for order {}", self.id);
+        query!(
+            r#"UPDATE orders
+            SET status = $1
+            WHERE id = $2"#,
+            OrderStatus::Producing as OrderStatus,
+            self.id,
+        )
+        .execute(con)
+        .await
     }
 
     pub async fn schedule(
@@ -160,5 +197,9 @@ impl Order {
 
     pub fn due_date(&self) -> i32 {
         self.due_date
+    }
+
+    pub fn status(&self) -> OrderStatus {
+        self.status
     }
 }

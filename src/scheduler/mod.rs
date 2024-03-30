@@ -10,7 +10,7 @@ use crate::{
     scheduler::handlers::{blueprint_handler::ItemBlueprint, order_handler},
 };
 
-pub static CURRENT_DATE: Lazy<RwLock<u32>> = Lazy::new(|| RwLock::new(0));
+pub static CURRENT_DATE: Lazy<RwLock<u32>> = Lazy::new(|| RwLock::new(1));
 pub const TIME_IN_DAY: i64 = 60; // in the simulation, 1 day is 60 seconds
 
 pub struct Scheduler {

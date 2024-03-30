@@ -32,9 +32,10 @@ impl Transformation {
     pub async fn insert(&mut self, con: &mut PgConnection) -> sqlx::Result<()> {
         self.id = Some(
             sqlx::query!(
-                "INSERT INTO transformations (material_id, product_id, recipe_id, date)
+                r#"INSERT INTO transformations
+                    (material_id, product_id, recipe_id, date)
                 VALUES ($1, $2, $3, $4)
-                RETURNING id",
+                RETURNING id"#,
                 self.material_id,
                 self.product_id,
                 self.recipe_id,
@@ -46,6 +47,22 @@ impl Transformation {
         );
 
         Ok(())
+    }
+
+    pub async fn get_by_id(
+        id: i64,
+        con: &mut PgConnection,
+    ) -> sqlx::Result<Self> {
+        sqlx::query_as!(
+            Transformation,
+            r#"
+            SELECT * FROM transformations
+            WHERE id = $1
+            "#,
+            id
+        )
+        .fetch_one(con)
+        .await
     }
 
     pub fn material_id(&self) -> Uuid {
@@ -68,6 +85,8 @@ impl Transformation {
 #[derive(Debug, Serialize)]
 pub struct TransformationDetails {
     pub transformation_id: i64,
+    pub material_id: Uuid,
+    pub product_id: Uuid,
     pub material_kind: PieceKind,
     pub product_kind: PieceKind,
     pub tool: ToolType,
@@ -75,7 +94,7 @@ pub struct TransformationDetails {
 }
 
 impl TransformationDetails {
-    pub async fn get_by_date(
+    pub async fn get_by_day(
         day: i32,
         con: &mut PgConnection,
     ) -> sqlx::Result<Vec<TransformationDetails>> {
@@ -83,13 +102,20 @@ impl TransformationDetails {
             TransformationDetails,
             r#"
             SELECT
-            transformations.id as "transformation_id",
+
+            transformations.id as transformation_id,
+            transformations.material_id,
+            transformations.product_id,
+
             recipes.material_kind as "material_kind: PieceKind",
             recipes.product_kind as "product_kind: PieceKind",
             recipes.tool as "tool: ToolType",
             recipes.operation_time
+
             FROM transformations
+
             JOIN recipes ON transformations.recipe_id = recipes.id
+
             WHERE transformations.date = $1
             "#,
             day

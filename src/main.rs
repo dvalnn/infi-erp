@@ -13,7 +13,7 @@ async fn main() -> Result<(), anyhow::Error> {
             settings.application.http_host.as_str(),
             settings.application.http_port,
         )
-        .with_tracing_level(tracing::Level::DEBUG)
+        .with_tracing_level(tracing::Level::INFO)
         .build()
         .await?;
 

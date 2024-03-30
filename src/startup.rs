@@ -4,11 +4,7 @@ use sqlx::PgPool;
 use tokio::net::UdpSocket;
 use tracing::Level;
 
-use crate::{
-    routes::{check_health, get_date, post_date},
-    scheduler::Scheduler,
-    udp_listener::Listener,
-};
+use crate::{routes, scheduler::Scheduler, udp_listener::Listener};
 
 pub struct AppBuilder {
     tracing_level: Level,
@@ -105,9 +101,13 @@ impl App {
         if let Some(addr) = self.web_addr {
             let server = match HttpServer::new(move || {
                 actix_web::App::new()
-                    .service(check_health)
-                    .service(get_date)
-                    .service(post_date)
+                    .wrap(actix_web::middleware::Logger::default())
+                    .service(routes::check_health)
+                    .service(routes::get_date)
+                    .service(routes::post_date)
+                    .service(routes::get_daily_transformations)
+                    .service(routes::post_transformation_completion)
+                    .service(routes::post_warehouse_action)
                     .app_data(Data::new(self.pool.clone()))
             })
             .bind(addr.clone())

@@ -1,15 +1,21 @@
 CREATE DOMAIN item_status AS varchar(10)
-CHECK (VALUE IN ('pending', 'in_stock', 'delivered', 'consumed'));
+CHECK (VALUE IN ('pending', 'in_transit', 'in_stock', 'delivered', 'consumed'));
 
 CREATE TABLE IF NOT EXISTS items (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 
   piece_kind piece_kind NOT NULL REFERENCES pieces(code),
   order_id uuid REFERENCES orders(id),
-  location char(2) REFERENCES warehouses(code),
+  warehouse char(2) REFERENCES warehouses(code),
+  production_line char(2) REFERENCES production_lines(code),
   status item_status NOT NULL DEFAULT 'pending',
   acc_cost money NOT NULL DEFAULT 0,
 
-  CHECK ((status = 'in_stock' AND location IS NOT NULL) OR (location IS NULL)),
+  CHECK (
+          (((status = 'in_stock') OR (status = 'in_transit')) AND warehouse IS NOT NULL)
+          OR
+          (warehouse IS NULL)
+        ),
+
   CHECK (( status = 'delivered' AND order_id IS NOT NULL) OR (status <> 'delivered'))
 );
