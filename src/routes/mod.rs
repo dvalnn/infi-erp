@@ -5,7 +5,7 @@ use std::{
 
 use actix_web::{
     get, post,
-    web::{Data, Form},
+    web::{self, Data, Form},
     HttpResponse, Responder,
 };
 use serde::Deserialize;
@@ -27,7 +27,7 @@ fn bad_request(e: impl Debug + Display) -> HttpResponse {
     HttpResponse::BadRequest().body(format!("{e}"))
 }
 
-#[get("/CheckHealth")]
+#[get("/check_health")]
 pub async fn check_health() -> impl Responder {
     HttpResponse::Ok()
 }
@@ -38,7 +38,7 @@ struct DayForm {
     day: u32,
 }
 
-#[get("/Date")]
+#[get("/date")]
 pub async fn get_date() -> impl Responder {
     match CURRENT_DATE.read() {
         Ok(date) => HttpResponse::Ok().body(format!("{}", *date)),
@@ -46,7 +46,7 @@ pub async fn get_date() -> impl Responder {
     }
 }
 
-#[post("/Date")]
+#[post("/date")]
 pub async fn post_date(form: Form<DayForm>) -> impl Responder {
     match CURRENT_DATE.write() {
         Ok(mut date) => {
@@ -57,9 +57,9 @@ pub async fn post_date(form: Form<DayForm>) -> impl Responder {
     }
 }
 
-#[get("/Transformations")]
+#[get("/transformations")]
 pub async fn get_daily_transformations(
-    form: Form<DayForm>,
+    query: web::Query<DayForm>,
     pool: Data<PgPool>,
 ) -> impl Responder {
     let mut tx = match pool.begin().await {
@@ -67,7 +67,7 @@ pub async fn get_daily_transformations(
         Err(e) => return internal_server_error(e),
     };
 
-    let day = form.day as i32;
+    let day = query.day as i32;
     let tranfs =
         match TransformationDetails::get_pending_by_day(day, &mut tx).await {
             Ok(details) => details,
@@ -140,7 +140,7 @@ struct TransfCompletionFrom {
     time_taken: i64,
 }
 
-#[post("/Transformations")]
+#[post("/transformations")]
 pub async fn post_transformation_completion(
     form: Form<TransfCompletionFrom>,
     pool: Data<PgPool>,
@@ -150,9 +150,23 @@ pub async fn post_transformation_completion(
         Err(e) => return internal_server_error(e),
     };
 
-    let m_query_result = Item::get_by_id(form.material_id, &mut tx).await;
-    let p_query_result = Item::get_by_id(form.product_id, &mut tx).await;
-    let (material, product) = match (m_query_result, p_query_result) {
+    let transf = match Transformation::get_by_id(form.transf_id, &mut tx).await
+    {
+        Ok(tf) => tf,
+        Err(e) => return internal_server_error(e),
+    };
+
+    if transf.material_id() != form.material_id {
+        return bad_request("Material id does not match");
+    }
+
+    if transf.product_id() != form.product_id {
+        return bad_request("Product id does not match");
+    }
+
+    let m_query_res = Item::get_by_id(form.material_id, &mut tx).await;
+    let p_query_res = Item::get_by_id(form.product_id, &mut tx).await;
+    let (material, product) = match (m_query_res, p_query_res) {
         (Ok(material), Ok(product)) => (material, product),
         (Err(e), _) | (_, Err(e)) => return internal_server_error(e),
     };
@@ -184,6 +198,7 @@ pub async fn post_transformation_completion(
 
 #[derive(Debug, Deserialize)]
 #[cfg_attr(test, derive(serde::Serialize))]
+#[serde(rename_all = "lowercase")]
 enum WarehouseAction {
     Entry(String),
     Exit(String),
@@ -197,7 +212,7 @@ struct WarehouseActionForm {
     action_type: WarehouseAction,
 }
 
-#[post("/Warehouse")]
+#[post("/warehouse")]
 pub async fn post_warehouse_action(
     form: Form<WarehouseActionForm>,
     pool: Data<PgPool>,
@@ -239,7 +254,7 @@ struct MaterialArrivalFrom {
     _day: u32,
 }
 
-#[post("/Materials/Arrivals")]
+#[post("/materials/arrivals")]
 pub async fn post_material_arrival(
     _form: Form<MaterialArrivalFrom>,
     _pool: Data<PgPool>,
