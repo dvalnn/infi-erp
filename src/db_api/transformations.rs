@@ -49,12 +49,17 @@ impl Transformation {
         Ok(())
     }
 
-    pub async fn complete(id: i64, con: &mut PgConnection) -> sqlx::Result<()> {
+    pub async fn complete(
+        &self,
+        completion_date: u32,
+        con: &mut PgConnection,
+    ) -> sqlx::Result<()> {
         sqlx::query!(
             r#"UPDATE transformations
-            SET status = 'completed'
-            WHERE id = $1"#,
-            id
+            SET status = 'completed', date = $1
+            WHERE id = $2"#,
+            completion_date as i32,
+            self.id
         )
         .execute(con)
         .await?;

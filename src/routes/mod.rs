@@ -179,9 +179,14 @@ pub async fn post_transformation_completion(
         (Err(e), _) | (_, Err(e)) => return bad_request(e),
     };
 
+    let current_date = match CURRENT_DATE.read() {
+        Ok(date) => *date,
+        Err(e) => return internal_server_error(e),
+    };
+
+    let tf_result = transf.complete(current_date, &mut tx).await;
     let m_result = material.update(&mut tx).await;
     let p_result = product.update(&mut tx).await;
-    let tf_result = Transformation::complete(form.transf_id, &mut tx).await;
     let tx_result = match (m_result, p_result, tf_result) {
         (Ok(_), Ok(_), Ok(_)) => tx.commit().await,
         (Err(e), _, _) | (_, Err(e), _) | (_, _, Err(e)) => {
