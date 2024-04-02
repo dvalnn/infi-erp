@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO\n                items (id, piece_kind, order_id, location, status, acc_cost)\n                VALUES ($1, $2, $3, $4, $5, $6)",
+  "query": "INSERT INTO\n                items (id, piece_kind, order_id, warehouse, production_line, status, acc_cost)\n                VALUES ($1, $2, $3, $4, $5, $6, $7)",
   "describe": {
     "columns": [],
     "parameters": {
@@ -26,6 +26,7 @@
         },
         "Uuid",
         "Bpchar",
+        "Bpchar",
         {
           "Custom": {
             "name": "item_status",
@@ -39,5 +40,5 @@
     },
     "nullable": []
   },
-  "hash": "325cf3ae5d728cb97e4bcf77f19213212ea58ba58c6103776cb6aaa0d6f06873"
+  "hash": "3772df638548e40b36e639c895304250a72beb399757f46e4cbf33e6d279bc33"
 }

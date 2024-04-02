@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE orders\n            SET status = $1\n            WHERE id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "order_status",
+            "kind": {
+              "Enum": [
+                "pending",
+                "scheduled",
+                "producing",
+                "completed",
+                "delivered",
+                "canceled"
+              ]
+            }
+          }
+        },
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5bd61773f8d235712ce17cf1449759fbf8e0862de3546220725ffc3808f5b30b"
+}
