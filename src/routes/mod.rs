@@ -82,7 +82,7 @@ pub async fn get_daily_transformations(
 
     let mut order_ids = HashSet::new();
     for tf in &tranfs {
-        let id = match Order::get_id_by_product(tf.product_id, &mut tx).await {
+        let order = match Order::get_by_item_id(tf.product_id, &mut tx).await {
             Err(e) => return internal_server_error(e),
             Ok(Some(order)) => order,
             Ok(None) => {
@@ -96,16 +96,9 @@ pub async fn get_daily_transformations(
 
         // Skip if this order was already seen on this run
         // Saves some uncessary work
-        if !order_ids.insert(id) {
+        if !order_ids.insert(order.id()) {
             continue;
         }
-
-        let order = match Order::get_by_id(id, &mut tx).await {
-            Ok(order) => order,
-            Err(e) => {
-                return internal_server_error(e);
-            }
-        };
 
         match order.status() {
             OrderStatus::Pending => {

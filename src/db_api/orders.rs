@@ -136,17 +136,23 @@ impl Order {
         )
     }
 
-    pub async fn get_id_by_product(
+    pub async fn get_by_item_id(
         product_id: Uuid,
         con: &mut PgConnection,
-    ) -> sqlx::Result<Option<Uuid>> {
-        Ok(sqlx::query!(
-            r#"SELECT order_id FROM items WHERE id = $1"#,
-            product_id
+    ) -> sqlx::Result<Option<Order>> {
+        sqlx::query_as(
+            r#"
+            SELECT orders.*
+            FROM orders, items
+            WHERE
+                orders.id = items.order_id
+                AND
+                items.id = $1
+            "#,
         )
-        .fetch_one(con)
-        .await?
-        .order_id)
+        .bind(product_id)
+        .fetch_optional(con)
+        .await
     }
 
     pub async fn production_start(
