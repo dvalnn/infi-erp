@@ -74,7 +74,7 @@ impl Order {
         }
     }
 
-    pub async fn insert(
+    pub async fn insert_to_db(
         order: &Order,
         con: &mut PgConnection,
     ) -> sqlx::Result<PgQueryResult> {

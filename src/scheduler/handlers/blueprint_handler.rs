@@ -12,7 +12,7 @@ pub struct ItemBlueprint {
 }
 
 impl ItemBlueprint {
-    pub async fn insert(
+    pub async fn insert_to_db(
         &mut self,
         con: &mut sqlx::PgConnection,
     ) -> sqlx::Result<()> {

@@ -31,7 +31,7 @@ impl Client {
             .await
     }
 
-    pub async fn insert(
+    pub async fn insert_to_db(
         name: &str,
         con: &mut PgConnection,
     ) -> sqlx::Result<Uuid> {
@@ -88,7 +88,7 @@ impl ClientOrder {
             Some(c) => c.id,
             None => {
                 tracing::info!("Inserting new client '{}'", &self.client_name);
-                Client::insert(&self.client_name, &mut tx).await?
+                Client::insert_to_db(&self.client_name, &mut tx).await?
             }
         };
 
@@ -101,7 +101,7 @@ impl ClientOrder {
             self.early_penalty,
             self.late_penalty,
         );
-        Order::insert(&new_order, &mut tx).await?;
+        Order::insert_to_db(&new_order, &mut tx).await?;
 
         Ntc::notify(Ntc::NewOrder, &new_order.id().to_string(), &mut tx)
             .await?;
