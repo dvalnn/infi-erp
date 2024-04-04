@@ -6,7 +6,7 @@ use once_cell::sync::Lazy;
 use sqlx::{postgres::PgListener, PgPool};
 
 use crate::{
-    db_api::{self, Item},
+    db_api::{self, Item, NotificationChannel as NotifCh},
     scheduler::handlers::{blueprint_handler::ItemBlueprint, order_handler},
 };
 
@@ -23,11 +23,11 @@ impl Scheduler {
         Self { pool, listener }
     }
 
-    pub async fn process_notif(
-        payload: &str,
+    async fn process_new_order(
+        payload: impl ToString,
         pool: &PgPool,
     ) -> anyhow::Result<()> {
-        let order_id = uuid::Uuid::parse_str(payload)?;
+        let order_id = uuid::Uuid::parse_str(&payload.to_string())?;
 
         let order = {
             let mut con = pool.acquire().await?;
@@ -91,15 +91,36 @@ impl Scheduler {
         // when all the items are ready for now, last day is the due date
         order.schedule(order.due_date(), &mut tx).await?;
 
+        NotifCh::notify(
+            NotifCh::MaterialsNeeded,
+            &order.id().to_string(),
+            &mut tx,
+        )
+        .await?;
+
         tx.commit().await?;
 
         Ok(())
     }
 
+    pub async fn process_notif(
+        notif: sqlx::postgres::PgNotification,
+        pool: &PgPool,
+    ) -> anyhow::Result<()> {
+        match NotifCh::try_from(notif.channel())? {
+            NotifCh::NewOrder => {
+                Self::process_new_order(notif.payload(), pool).await
+            }
+            NotifCh::MaterialsNeeded => {
+                tracing::info!("Materials needed: {:?}", notif.payload());
+                tracing::info!("Not implemented yet");
+                Ok(())
+            }
+        }
+    }
+
     pub async fn run(mut self) -> anyhow::Result<()> {
-        self.listener
-            .listen(&db_api::NotificationChannel::NewOrder.to_string())
-            .await?;
+        self.listener.listen(&NotifCh::NewOrder.to_string()).await?;
 
         loop {
             let notif = match self.listener.recv().await {
@@ -110,7 +131,7 @@ impl Scheduler {
                 }
             };
 
-            match Self::process_notif(notif.payload(), &self.pool).await {
+            match Self::process_notif(notif, &self.pool).await {
                 Ok(_) => (),
                 Err(e) => tracing::error!("{:?}", e),
             }

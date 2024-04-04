@@ -18,14 +18,14 @@ pub use transformations::*;
 
 pub enum NotificationChannel {
     NewOrder,
-    // NewBomEntry,
+    MaterialsNeeded,
 }
 
 impl NotificationChannel {
     const NEW_ORDER_CHANNEL: &'static str = "new_order";
-    const NEW_BOM_ENTRY_CHANNEL: &'static str = "new_bom_entry";
+    const MATERIALS_NEEDED_CHANNEL: &'static str = "materials_needed";
     const ALL_STR: [&'static str; 2] =
-        [Self::NEW_ORDER_CHANNEL, Self::NEW_BOM_ENTRY_CHANNEL];
+        [Self::NEW_ORDER_CHANNEL, Self::MATERIALS_NEEDED_CHANNEL];
 
     pub async fn notify(
         channel: NotificationChannel,
@@ -43,7 +43,7 @@ impl std::fmt::Display for NotificationChannel {
         use NotificationChannel as Nc;
         match self {
             Nc::NewOrder => write!(f, "new_order"),
-            // Nc::NewBomEntry => write!(f, "new_bom_entry"),
+            Nc::MaterialsNeeded => write!(f, "materials_needed"),
         }
     }
 }
@@ -56,9 +56,9 @@ impl TryFrom<&str> for NotificationChannel {
             NotificationChannel::NEW_ORDER_CHANNEL => {
                 Ok(NotificationChannel::NewOrder)
             }
-            // NotificationChannel::NEW_BOM_ENTRY_CHANNEL => {
-            //     Ok(NotificationChannel::NewBomEntry)
-            // }
+            NotificationChannel::MATERIALS_NEEDED_CHANNEL => {
+                Ok(NotificationChannel::MaterialsNeeded)
+            }
             _ => Err(anyhow::anyhow!("Invalid channel name")),
         }
     }
