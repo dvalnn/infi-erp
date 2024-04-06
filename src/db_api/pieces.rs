@@ -1,7 +1,12 @@
+use enum_iterator::Sequence;
 use serde::{Deserialize, Serialize};
+use sqlx::PgConnection;
 use subenum::subenum;
+use uuid::Uuid;
 
-#[subenum(FinalPiece, InterPiece, RawMaterial)]
+use super::{Item, ItemStatus};
+
+#[subenum(FinalPiece, InterPiece, RawMaterial(derive(Sequence)))]
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type,
 )]
@@ -48,5 +53,47 @@ impl TryFrom<&str> for FinalPiece {
             "P9" => Ok(FinalPiece::P9),
             _ => Err("Invalid work piece"),
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct RawMaterialDetails {
+    pub item_id: Uuid,
+    pub order_id: Uuid,
+    pub due_date: i32,
+}
+
+impl RawMaterial {
+    pub async fn get_pending_of(
+        kind: RawMaterial,
+        con: &mut PgConnection,
+    ) -> sqlx::Result<Vec<RawMaterialDetails>> {
+        Ok(sqlx::query!(
+            r#"
+            SELECT
+                items.id as item_id,
+                items.order_id as order_id,
+                transformations.date as due_date
+            FROM items
+            JOIN transformations ON items.id = transformations.material_id
+            WHERE
+                items.status = $1 AND
+                items.piece_kind = $2 AND
+                items.order_id IS NOT NULL AND
+                transformations.date IS NOT NULL
+            ORDER BY transformations.date
+            "#,
+            ItemStatus::Pending as ItemStatus,
+            kind as RawMaterial,
+        )
+        .fetch_all(con)
+        .await?
+        .iter()
+        .map(|row| RawMaterialDetails {
+            item_id: row.item_id,
+            order_id: row.order_id.expect("selecting only non null"),
+            due_date: row.due_date.expect("selecting only non null"),
+        })
+        .collect())
     }
 }
