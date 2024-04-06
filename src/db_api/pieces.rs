@@ -1,8 +1,15 @@
+use std::{
+    collections::{BTreeMap, HashMap},
+    num::NonZeroU64,
+};
+
 use enum_iterator::Sequence;
 use serde::{Deserialize, Serialize};
 use sqlx::PgConnection;
 use subenum::subenum;
 use uuid::Uuid;
+
+use crate::db_api::Supplier;
 
 use super::{Item, ItemStatus};
 
@@ -64,8 +71,56 @@ pub struct RawMaterialDetails {
 }
 
 impl RawMaterial {
-    pub async fn get_pending_of(
-        kind: RawMaterial,
+    pub async fn get_net_requirements(
+        &self,
+        con: &mut PgConnection,
+    ) -> sqlx::Result<BTreeMap<i32, i32>> {
+        Ok(sqlx::query!(
+            r#"
+            SELECT COUNT(items.id) as quantity, transformations.date as date
+            FROM items
+            JOIN transformations ON items.id = transformations.material_id
+            WHERE items.status = $1
+                AND items.piece_kind = $2
+                AND transformations.date IS NOT NULL
+            GROUP BY transformations.date
+            "#,
+            *self as RawMaterial,
+            ItemStatus::Pending as ItemStatus,
+        )
+        .fetch_all(con)
+        .await?
+        .into_iter()
+        .fold(BTreeMap::new(), |mut map, row| {
+            map.insert(
+                row.date.expect("selecting only non null"),
+                row.quantity.expect("selecting only non null") as i32,
+            );
+            map
+        }))
+    }
+
+    pub async fn get_stock(&self, con: &mut PgConnection) -> sqlx::Result<i64> {
+        sqlx::query!(
+            r#"
+            SELECT
+                COUNT(*) as quantity
+            FROM items
+            WHERE
+                items.status = $1 AND
+                items.piece_kind = $2 AND
+                items.order_id IS NULL
+            "#,
+            ItemStatus::InStock as ItemStatus,
+            *self as RawMaterial,
+        )
+        .fetch_one(con)
+        .await
+        .map(|row| row.quantity.expect("Count is some"))
+    }
+
+    pub async fn get_pending(
+        &self,
         con: &mut PgConnection,
     ) -> sqlx::Result<Vec<RawMaterialDetails>> {
         Ok(sqlx::query!(
@@ -84,7 +139,7 @@ impl RawMaterial {
             ORDER BY transformations.date
             "#,
             ItemStatus::Pending as ItemStatus,
-            kind as RawMaterial,
+            *self as RawMaterial,
         )
         .fetch_all(con)
         .await?

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use sqlx::postgres::types::PgMoney;
 use sqlx::PgConnection;
 use uuid::Uuid;
@@ -13,7 +15,33 @@ pub struct Supplier {
     delivery_time: i32,
 }
 
+pub struct ShippmentDetails {
+    supplier_id: i64,
+    quantity: i32,
+    cost: PgMoney,
+}
+
+impl ShippmentDetails {
+    pub fn cost(&self) -> PgMoney {
+        self.cost
+    }
+}
+
 impl Supplier {
+    pub fn can_deliver_in(&self, time: i32) -> bool {
+        self.delivery_time <= time
+    }
+
+    pub fn shippment_details(&self, order_quantity: i32) -> ShippmentDetails {
+        let quantity = order_quantity.min(self.min_order_quantity);
+        let cost = quantity as i64 * self.unit_price.0;
+        ShippmentDetails {
+            supplier_id: self.id,
+            quantity,
+            cost: cost.into(),
+        }
+    }
+
     pub async fn get_by_id(
         id: i64,
         con: &mut PgConnection,
@@ -99,12 +127,20 @@ impl Supplier {
     }
 }
 
+#[derive(Debug)]
 pub struct Shippment {
     id: Option<i64>,
     supplier_id: i64,
     request_date: i32,
     quantity: i32,
     cost: PgMoney,
+}
+
+#[derive(Debug, Clone)]
+pub struct UnderAllocatedShippment {
+    pub id: i64,
+    pub extra_quantity: i64,
+    pub added: Option<i64>,
 }
 
 impl Shippment {
@@ -151,6 +187,37 @@ impl Shippment {
         )
         .fetch_optional(con)
         .await
+    }
+
+    pub async fn get_under_allocated(
+        due_date: i32,
+        material_kind: RawMaterial,
+        con: &mut PgConnection,
+    ) -> sqlx::Result<Vec<UnderAllocatedShippment>> {
+        Ok(sqlx::query!(
+            r#"
+            SELECT shipp.id, shipp.quantity-COUNT(item.id) as extra_quantity
+            FROM shippments as shipp
+            JOIN raw_material_shippments as ord ON shipp.id = ord.shippment_id
+            JOIN suppliers as sup ON shipp.supplier_id = sup.id
+            JOIN items as item ON ord.raw_material_id = item.id
+            WHERE shipp.request_date + sup.delivery_time = $1
+            AND item.piece_kind = $2
+            GROUP BY shipp.id
+            HAVING shipp.quantity > COUNT(item.id)
+            "#,
+            due_date,
+            material_kind as RawMaterial
+        )
+        .fetch_all(con)
+        .await?
+        .into_iter()
+        .map(|row| UnderAllocatedShippment {
+            id: row.id,
+            extra_quantity: row.extra_quantity.expect("is always Some"),
+            added: None,
+        })
+        .collect())
     }
 
     pub async fn insert(&self, con: &mut PgConnection) -> sqlx::Result<i64> {

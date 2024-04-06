@@ -1,4 +1,5 @@
 mod handlers;
+mod resource_planning;
 
 use std::{collections::HashMap, sync::RwLock};
 
@@ -120,18 +121,15 @@ impl Scheduler {
         let current_date = Self::get_date();
 
         let mut con = pool.acquire().await?;
-        let pending_by_day = RawMaterial::get_pending_of(variant, &mut con)
-            .await?
-            .iter()
-            .fold(
-                HashMap::<i32, Vec<RawMaterialDetails>>::new(),
-                |mut map, material| {
-                    map.entry(material.due_date)
-                        .or_default()
-                        .push(material.clone());
-                    map
-                },
-            );
+        let pending_by_day = variant.get_pending(&mut con).await?.iter().fold(
+            HashMap::<i32, Vec<RawMaterialDetails>>::new(),
+            |mut map, material| {
+                map.entry(material.due_date)
+                    .or_default()
+                    .push(material.clone());
+                map
+            },
+        );
 
         if pending_by_day.is_empty() {
             anyhow::bail!("Order has no raw material requirements")
