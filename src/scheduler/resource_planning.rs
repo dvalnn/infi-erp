@@ -25,7 +25,11 @@ pub async fn resolve_material_needs(
         return Ok(());
     }
 
-    tracing::info!("Net {:#?} requirements: {:?}", variant, qr.net_req);
+    tracing::info!(
+        "Net {:#?} requirements ({{day: ammount}}): {:?}",
+        variant,
+        qr.net_req
+    );
     tracing::trace!("{:#?} suppliers: {:?}", variant, qr.suppliers);
     tracing::trace!("Under allocated shippments: {:?}", qr.shippments);
 
