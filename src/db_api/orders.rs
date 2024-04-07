@@ -5,7 +5,7 @@ use sqlx::{
     PgConnection,
 };
 
-use crate::scheduler::CURRENT_DATE;
+use crate::scheduler::{self, Scheduler};
 
 use super::{pieces::FinalPiece, PieceKind};
 
@@ -74,11 +74,11 @@ impl Order {
         }
     }
 
-    pub async fn insert(
+    pub async fn insert_to_db(
         order: &Order,
         con: &mut PgConnection,
     ) -> sqlx::Result<PgQueryResult> {
-        let placement_day = *CURRENT_DATE.read().expect("Lock is poisoned");
+        let placement_day = Scheduler::get_date();
 
         query!(
             r#"INSERT INTO orders (

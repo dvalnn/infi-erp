@@ -1,5 +1,9 @@
-CREATE DOMAIN item_status AS varchar(10)
-CHECK (VALUE IN ('pending', 'in_transit', 'in_stock', 'delivered', 'consumed'));
+CREATE TYPE item_status AS enum(
+  'pending',
+  'in_transit',
+  'in_stock',
+  'delivered',
+  'consumed');
 
 CREATE TABLE IF NOT EXISTS items (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

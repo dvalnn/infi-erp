@@ -1,4 +1,5 @@
 mod handlers;
+mod resource_planning;
 
 use std::sync::RwLock;
 
@@ -6,12 +7,12 @@ use once_cell::sync::Lazy;
 use sqlx::{postgres::PgListener, PgPool};
 
 use crate::{
-    db_api::{self, Item},
+    db_api::{self, Item, NotificationChannel as NotifCh, RawMaterial},
     scheduler::handlers::{blueprint_handler::ItemBlueprint, order_handler},
 };
 
-pub static CURRENT_DATE: Lazy<RwLock<u32>> = Lazy::new(|| RwLock::new(1));
 pub const TIME_IN_DAY: i64 = 60; // in the simulation, 1 day is 60 seconds
+pub static CURRENT_DATE: Lazy<RwLock<u32>> = Lazy::new(|| RwLock::new(1));
 
 pub struct Scheduler {
     pool: PgPool,
@@ -23,11 +24,15 @@ impl Scheduler {
         Self { pool, listener }
     }
 
-    pub async fn process_notif(
-        payload: &str,
+    pub fn get_date() -> u32 {
+        *CURRENT_DATE.read().expect("lock was poisoned")
+    }
+
+    async fn process_new_order(
+        payload: impl ToString,
         pool: &PgPool,
     ) -> anyhow::Result<()> {
-        let order_id = uuid::Uuid::parse_str(payload)?;
+        let order_id = uuid::Uuid::parse_str(&payload.to_string())?;
 
         let order = {
             let mut con = pool.acquire().await?;
@@ -48,7 +53,7 @@ impl Scheduler {
         tracing::debug!("Generated recipe: {:?}", full_recipe);
         tracing::debug!("Generated order items: {:?}", order_items);
 
-        let current_date = *CURRENT_DATE.read().expect("Lock is poisoned");
+        let current_date = Scheduler::get_date();
         let blueprints = order_items
             .iter()
             .filter_map(|item| {
@@ -84,7 +89,7 @@ impl Scheduler {
 
         let mut tx = pool.begin().await?;
         for mut bp in blueprints {
-            bp.insert(&mut tx).await?;
+            bp.insert_to_db(&mut tx).await?;
         }
 
         // order must be delivered on the last day of the schedule
@@ -93,12 +98,69 @@ impl Scheduler {
 
         tx.commit().await?;
 
+        let mut con = pool.acquire().await?;
+        NotifCh::notify(
+            NotifCh::MaterialsNeeded,
+            &order.id().to_string(),
+            &mut con,
+        )
+        .await?;
+
         Ok(())
     }
 
+    async fn process_material_needs(
+        _: impl ToString,
+        pool: &PgPool,
+    ) -> anyhow::Result<()> {
+        let raw_material_variants =
+            enum_iterator::all::<RawMaterial>().collect::<Vec<_>>();
+
+        let mut set = tokio::task::JoinSet::new();
+
+        for variant in raw_material_variants {
+            set.spawn(resource_planning::resolve_material_needs(
+                variant,
+                pool.clone(),
+            ));
+        }
+
+        while let Some(join_res) = set.join_next().await {
+            match join_res {
+                Ok(task_res) => {
+                    if let Err(e) = task_res {
+                        tracing::error!("{:?}", e)
+                    }
+                }
+                Err(e) => anyhow::bail!("{:?}", e),
+            }
+        }
+
+        Ok(())
+    }
+
+    pub async fn process_notif(
+        notif: sqlx::postgres::PgNotification,
+        pool: &PgPool,
+    ) -> anyhow::Result<()> {
+        match NotifCh::try_from(notif.channel())? {
+            NotifCh::NewOrder => {
+                Self::process_new_order(notif.payload(), pool).await
+            }
+            NotifCh::MaterialsNeeded => {
+                tracing::info!(
+                    "Materials needed for order: {:?}",
+                    notif.payload()
+                );
+                Self::process_material_needs(notif.payload(), pool).await
+            }
+        }
+    }
+
     pub async fn run(mut self) -> anyhow::Result<()> {
+        self.listener.listen(&NotifCh::NewOrder.to_string()).await?;
         self.listener
-            .listen(&db_api::NotificationChannel::NewOrder.to_string())
+            .listen(&NotifCh::MaterialsNeeded.to_string())
             .await?;
 
         loop {
@@ -110,7 +172,7 @@ impl Scheduler {
                 }
             };
 
-            match Self::process_notif(notif.payload(), &self.pool).await {
+            match Self::process_notif(notif, &self.pool).await {
                 Ok(_) => (),
                 Err(e) => tracing::error!("{:?}", e),
             }

@@ -1,7 +1,19 @@
-use serde::{Deserialize, Serialize};
-use subenum::subenum;
+use std::{
+    collections::{BTreeMap, HashMap},
+    num::NonZeroU64,
+};
 
-#[subenum(FinalPiece, InterPiece, RawMaterial)]
+use enum_iterator::Sequence;
+use serde::{Deserialize, Serialize};
+use sqlx::PgConnection;
+use subenum::subenum;
+use uuid::Uuid;
+
+use crate::db_api::Supplier;
+
+use super::{Item, ItemStatus};
+
+#[subenum(FinalPiece, InterPiece, RawMaterial(derive(Sequence)))]
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type,
 )]
@@ -48,5 +60,98 @@ impl TryFrom<&str> for FinalPiece {
             "P9" => Ok(FinalPiece::P9),
             _ => Err("Invalid work piece"),
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct RawMaterialDetails {
+    pub item_id: Uuid,
+    pub order_id: Uuid,
+    pub due_date: i32,
+}
+
+impl RawMaterial {
+    pub async fn get_net_requirements(
+        &self,
+        con: &mut PgConnection,
+    ) -> sqlx::Result<HashMap<i32, i32>> {
+        Ok(sqlx::query!(
+            r#"
+            SELECT COUNT(items.id) as quantity, transformations.date as date
+            FROM items
+            JOIN transformations ON items.id = transformations.material_id
+            LEFT JOIN raw_material_shippments ON items.id = raw_material_shippments.raw_material_id
+            WHERE items.status = $1
+                AND items.piece_kind = $2
+                AND transformations.date IS NOT NULL
+                AND raw_material_shippments.raw_material_id IS NULL
+            GROUP BY transformations.date
+            "#,
+            ItemStatus::Pending as ItemStatus,
+            *self as RawMaterial,
+        )
+        .fetch_all(con)
+        .await?
+        .into_iter()
+        .fold(HashMap::new(), |mut map, row| {
+            map.insert(
+                row.date.expect("selecting only non null"),
+                row.quantity.expect("selecting only non null") as i32,
+            );
+            map
+        }))
+    }
+
+    pub async fn get_stock(&self, con: &mut PgConnection) -> sqlx::Result<i64> {
+        sqlx::query!(
+            r#"
+            SELECT
+                COUNT(*) as quantity
+            FROM items
+            WHERE
+                items.status = $1 AND
+                items.piece_kind = $2 AND
+                items.order_id IS NULL
+            "#,
+            ItemStatus::InStock as ItemStatus,
+            *self as RawMaterial,
+        )
+        .fetch_one(con)
+        .await
+        .map(|row| row.quantity.expect("Count is some"))
+    }
+
+    pub async fn get_pending_purchase(
+        &self,
+        con: &mut PgConnection,
+    ) -> sqlx::Result<Vec<RawMaterialDetails>> {
+        Ok(sqlx::query!(
+            r#"
+            SELECT
+                items.id as item_id,
+                items.order_id as order_id,
+                transformations.date as due_date
+            FROM items
+            JOIN transformations ON items.id = transformations.material_id
+            LEFT JOIN raw_material_shippments ON items.id = raw_material_shippments.raw_material_id
+            WHERE items.status = $1
+                AND items.piece_kind = $2
+                AND items.order_id IS NOT NULL
+                AND transformations.date IS NOT NULL
+                AND raw_material_shippments.raw_material_id IS NULL  -- Exclude shipped items
+            ORDER BY transformations.date
+            "#,
+            ItemStatus::Pending as ItemStatus,
+            *self as RawMaterial,
+        )
+        .fetch_all(con)
+        .await?
+        .iter()
+        .map(|row| RawMaterialDetails {
+            item_id: row.item_id,
+            order_id: row.order_id.expect("selecting only non null"),
+            due_date: row.due_date.expect("selecting only non null"),
+        })
+        .collect())
     }
 }
