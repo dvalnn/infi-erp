@@ -6,6 +6,7 @@ mod items;
 mod orders;
 mod pieces;
 mod recipes;
+mod shippments;
 mod suppliers;
 mod transformations;
 
@@ -15,6 +16,7 @@ pub use items::*;
 pub use orders::*;
 pub use pieces::*;
 pub use recipes::*;
+pub use shippments::*;
 pub use suppliers::*;
 pub use transformations::*;
 

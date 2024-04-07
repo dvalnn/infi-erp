@@ -74,24 +74,26 @@ impl RawMaterial {
     pub async fn get_net_requirements(
         &self,
         con: &mut PgConnection,
-    ) -> sqlx::Result<BTreeMap<i32, i32>> {
+    ) -> sqlx::Result<HashMap<i32, i32>> {
         Ok(sqlx::query!(
             r#"
             SELECT COUNT(items.id) as quantity, transformations.date as date
             FROM items
             JOIN transformations ON items.id = transformations.material_id
+            LEFT JOIN raw_material_shippments ON items.id = raw_material_shippments.raw_material_id
             WHERE items.status = $1
                 AND items.piece_kind = $2
                 AND transformations.date IS NOT NULL
+                AND raw_material_shippments.raw_material_id IS NULL
             GROUP BY transformations.date
             "#,
-            *self as RawMaterial,
             ItemStatus::Pending as ItemStatus,
+            *self as RawMaterial,
         )
         .fetch_all(con)
         .await?
         .into_iter()
-        .fold(BTreeMap::new(), |mut map, row| {
+        .fold(HashMap::new(), |mut map, row| {
             map.insert(
                 row.date.expect("selecting only non null"),
                 row.quantity.expect("selecting only non null") as i32,
@@ -119,7 +121,7 @@ impl RawMaterial {
         .map(|row| row.quantity.expect("Count is some"))
     }
 
-    pub async fn get_pending(
+    pub async fn get_pending_purchase(
         &self,
         con: &mut PgConnection,
     ) -> sqlx::Result<Vec<RawMaterialDetails>> {
@@ -131,11 +133,12 @@ impl RawMaterial {
                 transformations.date as due_date
             FROM items
             JOIN transformations ON items.id = transformations.material_id
-            WHERE
-                items.status = $1 AND
-                items.piece_kind = $2 AND
-                items.order_id IS NOT NULL AND
-                transformations.date IS NOT NULL
+            LEFT JOIN raw_material_shippments ON items.id = raw_material_shippments.raw_material_id
+            WHERE items.status = $1
+                AND items.piece_kind = $2
+                AND items.order_id IS NOT NULL
+                AND transformations.date IS NOT NULL
+                AND raw_material_shippments.raw_material_id IS NULL  -- Exclude shipped items
             ORDER BY transformations.date
             "#,
             ItemStatus::Pending as ItemStatus,

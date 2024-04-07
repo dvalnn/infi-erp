@@ -1,16 +1,13 @@
 mod handlers;
 mod resource_planning;
 
-use std::{collections::HashMap, sync::RwLock};
+use std::sync::RwLock;
 
 use once_cell::sync::Lazy;
 use sqlx::{postgres::PgListener, PgPool};
 
 use crate::{
-    db_api::{
-        self, Item, MaterialShippments, NotificationChannel as NotifCh,
-        RawMaterial, RawMaterialDetails, Shippment, Supplier,
-    },
+    db_api::{self, Item, NotificationChannel as NotifCh, RawMaterial},
     scheduler::handlers::{blueprint_handler::ItemBlueprint, order_handler},
 };
 
@@ -112,150 +109,6 @@ impl Scheduler {
         Ok(())
     }
 
-    async fn process_material_variant(
-        variant: RawMaterial,
-        pool: PgPool,
-    ) -> anyhow::Result<()> {
-        tracing::info!("Processing material variant: {:?}", variant);
-
-        let current_date = Self::get_date();
-
-        let mut con = pool.acquire().await?;
-        let pending_by_day = variant.get_pending(&mut con).await?.iter().fold(
-            HashMap::<i32, Vec<RawMaterialDetails>>::new(),
-            |mut map, material| {
-                map.entry(material.due_date)
-                    .or_default()
-                    .push(material.clone());
-                map
-            },
-        );
-
-        if pending_by_day.is_empty() {
-            anyhow::bail!("Order has no raw material requirements")
-        }
-
-        tracing::info!(
-            "[Variant {:#?}] {} days with pending materials",
-            variant,
-            pending_by_day.len()
-        );
-
-        let earliest_due = *pending_by_day.keys().min().expect("min exists");
-        if earliest_due <= current_date as i32 {
-            //TODO: Send cancel order signal
-            anyhow::bail!("unfulfillable raw_material request")
-        }
-
-        let mut shippment_day_map = HashMap::<i32, Option<Shippment>>::new();
-
-        for day in pending_by_day.keys() {
-            let shippments = Shippment::get_existing_shippment(
-                variant,
-                *day,
-                current_date as i32,
-                &mut con,
-            )
-            .await?;
-
-            shippment_day_map.insert(*day, shippments);
-        }
-
-        let some_shippement_days = shippment_day_map
-            .iter()
-            .filter(|(_, shippements)| shippements.is_some())
-            .map(|(day, _)| *day)
-            .collect::<Vec<_>>();
-
-        tracing::info!(
-            "[Variant {:#?}] {} days with existing shippments",
-            variant,
-            some_shippement_days.len()
-        );
-
-        for shippement_day in some_shippement_days {
-            let shippment = shippment_day_map
-                .get_mut(&shippement_day)
-                .expect("day exists")
-                .as_mut()
-                .expect("shippment exists");
-
-            shippment.add_to_quantity(
-                pending_by_day
-                    .get(&shippement_day)
-                    .expect("day exists")
-                    .len() as i32,
-            );
-        }
-
-        let none_shippement_days = shippment_day_map
-            .iter()
-            .filter(|(_, shippements)| shippements.is_none())
-            .map(|(day, _)| *day)
-            .collect::<Vec<_>>();
-
-        for arrival_day in none_shippement_days {
-            let time = arrival_day - current_date as i32;
-            let suppliers =
-                Supplier::get_compatible(variant, time, &mut con).await?;
-
-            if suppliers.is_empty() {
-                //TODO: send order reschedule signal
-                anyhow::bail!("No supplier can deliver in time")
-            }
-            tracing::info!(
-                "[Variant {:#?}] {} suppliers can deliver on day {}",
-                variant,
-                suppliers.len(),
-                arrival_day
-            );
-
-            let cheapest_supplier = suppliers
-                .iter()
-                .min_by_key(|s| s.unit_price().0)
-                .expect("supplier exists");
-
-            let request_deadline =
-                arrival_day - cheapest_supplier.delivery_time();
-
-            let order_quantity =
-                pending_by_day.get(&arrival_day).expect("day exists").len()
-                    as i64;
-
-            let order_cost = order_quantity * cheapest_supplier.unit_price().0;
-
-            let shippment = Shippment::new(
-                cheapest_supplier.id(),
-                request_deadline,
-                order_quantity as i32,
-                order_cost.into(),
-            );
-
-            shippment_day_map.insert(arrival_day, Some(shippment));
-        }
-
-        let mut tx = pool.begin().await?;
-        for (day, shippment) in shippment_day_map {
-            let shippment = shippment.expect("shippment exists");
-            let shippment_id = shippment.upsert(&mut tx).await?;
-            tracing::info!(
-                "[Variant {:#?}] Created shippment with id: {}",
-                variant,
-                shippment_id
-            );
-            let items = pending_by_day.get(&day).expect("day exists");
-            for item in items {
-                MaterialShippments::new(item.item_id, shippment_id)
-                    .insert(&mut tx)
-                    .await?;
-            }
-        }
-
-        tx.commit().await?;
-
-        Ok(())
-    }
-
     async fn process_material_needs(
         _: impl ToString,
         pool: &PgPool,
@@ -266,7 +119,10 @@ impl Scheduler {
         let mut set = tokio::task::JoinSet::new();
 
         for variant in raw_material_variants {
-            set.spawn(Self::process_material_variant(variant, pool.clone()));
+            set.spawn(resource_planning::resolve_material_needs(
+                variant,
+                pool.clone(),
+            ));
         }
 
         while let Some(join_res) = set.join_next().await {
