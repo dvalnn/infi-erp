@@ -1,4 +1,4 @@
-use sqlx::{postgres::types::PgMoney, PgConnection};
+use sqlx::{postgres::types::PgMoney, PgConnection, PgPool};
 use uuid::Uuid;
 
 use super::RawMaterial;
@@ -19,6 +19,13 @@ pub struct UnderAllocatedShippment {
     pub added: Option<i64>,
 }
 
+#[derive(Debug)]
+pub struct ExpectedShippment {
+    pub id: i64,
+    pub material_type: RawMaterial,
+    pub quantity: i32,
+}
+
 impl Shippment {
     pub fn new(
         supplier_id: i64,
@@ -33,6 +40,73 @@ impl Shippment {
             quantity,
             cost,
         }
+    }
+
+    pub async fn arrived(id: i64, date: i32, con: &PgPool) -> sqlx::Result<()> {
+        sqlx::query!(
+            r#"
+            WITH item_prices AS (
+            SELECT unit_price
+            FROM suppliers
+            JOIN shippments AS sh
+                ON sh.supplier_id = suppliers.id WHERE sh.id = $1
+            )
+            UPDATE
+                items
+            SET
+                status = 'in_stock',
+                warehouse = 'W1',
+                acc_cost = (SELECT unit_price FROM item_prices)
+            WHERE id IN
+            (
+                SELECT items.id
+                FROM items
+                JOIN raw_material_shippments AS rs
+                    ON rs.raw_material_id = items.id
+                JOIN shippments AS s
+                    ON rs.shippment_id = s.id
+                WHERE s.id = $1
+            )
+            "#,
+            id,
+        )
+        .execute(con)
+        .await?;
+
+        sqlx::query!(
+            r#"
+            UPDATE shippments
+            SET arrival_date = $1
+            WHERE id = $2
+            "#,
+            date,
+            id
+        )
+        .execute(con)
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn get_expected_for_arrival(
+        date: i32,
+        con: &mut PgConnection,
+    ) -> sqlx::Result<Vec<ExpectedShippment>> {
+        sqlx::query_as!(
+            ExpectedShippment,
+            r#"
+            SELECT
+                ship.id,
+                ship.quantity,
+                sup.raw_material_kind as "material_type: RawMaterial"
+            FROM shippments AS ship
+            JOIN suppliers AS sup ON ship.supplier_id = sup.id
+            WHERE request_date + delivery_time = $1
+            "#,
+            date
+        )
+        .fetch_all(con)
+        .await
     }
 
     pub async fn get_existing_shippment(
@@ -53,8 +127,9 @@ impl Shippment {
             FROM shippments as ship
             JOIN suppliers as sup ON ship.supplier_id = sup.id
             WHERE raw_material_kind = $1
-                AND request_date > $2 
+                AND request_date > $2
                 AND request_date + sup.delivery_time = $3
+                AND ship.arrival_date IS NULL
             "#,
             kind as RawMaterial,
             current_date,
@@ -78,6 +153,7 @@ impl Shippment {
             JOIN items as item ON ord.raw_material_id = item.id
             WHERE shipp.request_date + sup.delivery_time = $1
                 AND item.piece_kind = $2
+                AND shipp.arrival_date IS NULL
             GROUP BY shipp.id
             HAVING shipp.quantity > COUNT(item.id)
             "#,
