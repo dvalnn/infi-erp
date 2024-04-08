@@ -108,6 +108,7 @@ impl App {
                     .service(routes::get_daily_transformations)
                     .service(routes::post_transformation_completion)
                     .service(routes::post_warehouse_action)
+                    .service(routes::get_expected_shippments)
                     .service(routes::post_material_arrival)
                     .app_data(Data::new(self.pool.clone()))
             })

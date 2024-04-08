@@ -5,16 +5,19 @@ use std::{
 
 use actix_web::{
     get, post,
-    web::{self, Data, Form},
+    web::{Data, Form, Query},
     HttpResponse, Responder,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use sqlx::{postgres::types::PgMoney, PgPool};
 use uuid::Uuid;
 
 use crate::{
-    db_api::{Item, Order, OrderStatus, Transformation, TransformationDetails},
-    scheduler::CURRENT_DATE,
+    db_api::{
+        Item, Order, OrderStatus, RawMaterial, Shippment, Transformation,
+        TransformationDetails,
+    },
+    scheduler::{Scheduler, CURRENT_DATE},
 };
 
 fn internal_server_error(e: impl Debug + Display) -> HttpResponse {
@@ -59,7 +62,7 @@ pub async fn post_date(form: Form<DayForm>) -> impl Responder {
 
 #[get("/transformations")]
 pub async fn get_daily_transformations(
-    query: web::Query<DayForm>,
+    query: Query<DayForm>,
     pool: Data<PgPool>,
 ) -> impl Responder {
     let mut tx = match pool.begin().await {
@@ -245,24 +248,61 @@ pub async fn post_warehouse_action(
     }
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+struct ExpectedShipmentForm {
+    shipment_id: i64,
+    material_type: RawMaterial,
+    quantity: i32,
+}
+
+#[post("/materials/expected")]
+pub async fn get_expected_shippments(
+    query: Query<DayForm>,
+    pool: Data<PgPool>,
+) -> impl Responder {
+    let mut con = match pool.acquire().await {
+        Ok(con) => con,
+        Err(e) => return internal_server_error(e),
+    };
+
+    let expected =
+        Shippment::get_expected_for_arrival(query.day as i32, &mut con);
+    let response_body = match expected.await {
+        Ok(shipp_vec) => shipp_vec
+            .iter()
+            .map(|s| ExpectedShipmentForm {
+                shipment_id: s.id,
+                material_type: s.material_type,
+                quantity: s.quantity,
+            })
+            .collect::<Vec<_>>(),
+        Err(e) => return internal_server_error(e),
+    };
+
+    HttpResponse::Ok().json(response_body)
+}
+
 #[derive(Debug, Deserialize)]
 #[cfg_attr(test, derive(serde::Serialize))]
-struct MaterialArrivalFrom {
-    _shipment_id: Uuid,
-    _day: u32,
+struct ShippmentArrivalForm {
+    shippment_id: i64,
 }
 
 #[post("/materials/arrivals")]
 pub async fn post_material_arrival(
-    _form: Form<MaterialArrivalFrom>,
-    _pool: Data<PgPool>,
+    form: Form<ShippmentArrivalForm>,
+    pool: Data<PgPool>,
 ) -> impl Responder {
-    // let raw_materials = todo!("query raw_material_arrivals");
-    HttpResponse::NotImplemented()
+    let date = Scheduler::get_date() as i32;
+
+    match Shippment::arrived(form.shippment_id, date, &pool).await {
+        Ok(_) => HttpResponse::Created().finish(),
+        Err(e) => internal_server_error(e),
+    }
 }
 
-// TODO: material arrivals to warehouse
-// TODO: delivery confirmations
+// TODO: test material arrivals to warehouse
+// TODO: test delivery confirmations
 #[cfg(test)]
 mod tests {
     use super::{check_health, DayForm};
