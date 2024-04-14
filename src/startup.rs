@@ -105,7 +105,7 @@ impl App {
                     .service(routes::check_health)
                     .service(routes::get_date)
                     .service(routes::post_date)
-                    .service(routes::get_daily_transformations)
+                    .service(routes::get_production)
                     .service(routes::post_transformation_completion)
                     .service(routes::post_warehouse_action)
                     .service(routes::get_expected_shippments)

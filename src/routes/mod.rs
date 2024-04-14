@@ -54,10 +54,83 @@ pub async fn post_date(form: Form<DayForm>) -> impl Responder {
     match CURRENT_DATE.write() {
         Ok(mut date) => {
             *date = form.day;
+            tracing::info!("Date set to {}", form.day);
             HttpResponse::Created().finish()
         }
-        Err(e) => internal_server_error(e),
+        Err(e) => panic!("Date lock was poisoned: {:?}", e),
     }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(test, derive(serde::Serialize))]
+struct ProductionForm {
+    max_n_items: u32,
+}
+
+#[derive(Debug, Serialize)]
+struct Recipe {
+    steps: Vec<TransformationDetails>,
+}
+
+#[get("/production")]
+pub async fn get_production(
+    query: Query<ProductionForm>,
+    pool: Data<PgPool>,
+) -> impl Responder {
+    let mut tx = match pool.begin().await {
+        Ok(tx) => tx,
+        Err(e) => return internal_server_error(e),
+    };
+
+    let n_items = query.max_n_items as i64;
+    let ids = match Transformation::get_n_next_raw_mat_transf(n_items, &mut tx)
+        .await
+    {
+        Ok(ids) => ids,
+        Err(e) => return internal_server_error(e),
+    };
+
+    let mut recipes = Vec::new();
+    for material_id in ids {
+        let mut steps = Vec::new();
+        let mut material = material_id;
+        while let Some(transf) =
+            match TransformationDetails::get_by_id(material, &mut tx).await {
+                Ok(t) => t,
+                Err(e) => return internal_server_error(e),
+            }
+        {
+            material = transf.product_id;
+            steps.push(transf);
+        }
+        recipes.push(Recipe { steps })
+    }
+
+    if recipes.iter().any(|r| r.steps.is_empty()) {
+        tracing::error!("Some transformations are missing");
+        return HttpResponse::NotFound().finish();
+    }
+
+    for recipe in &recipes {
+        //NOTE: all items in a recipe relate to the same order
+        let transf = &recipe.steps[0];
+        let order =
+            match Order::get_by_item_id(transf.product_id, &mut tx).await {
+                Ok(Some(order)) => order,
+                Ok(None) => continue,
+                Err(e) => return internal_server_error(e),
+            };
+        if let Err(e) = order.production_start(&mut tx).await {
+            return internal_server_error(e);
+        }
+        tracing::info!("Started production for order {}", order.id());
+    }
+
+    if let Err(e) = tx.commit().await {
+        return internal_server_error(e);
+    }
+
+    HttpResponse::Ok().json(recipes)
 }
 
 #[get("/transformations")]
@@ -250,12 +323,12 @@ pub async fn post_warehouse_action(
 
 #[derive(Debug, Deserialize, Serialize)]
 struct ExpectedShipmentForm {
-    shipment_id: i64,
+    shippment_id: i64,
     material_type: RawMaterial,
     quantity: i32,
 }
 
-#[post("/materials/expected")]
+#[get("/materials/expected")]
 pub async fn get_expected_shippments(
     query: Query<DayForm>,
     pool: Data<PgPool>,
@@ -271,7 +344,7 @@ pub async fn get_expected_shippments(
         Ok(shipp_vec) => shipp_vec
             .iter()
             .map(|s| ExpectedShipmentForm {
-                shipment_id: s.id,
+                shippment_id: s.id,
                 material_type: s.material_type,
                 quantity: s.quantity,
             })
@@ -296,8 +369,11 @@ pub async fn post_material_arrival(
     let date = Scheduler::get_date() as i32;
 
     match Shippment::arrived(form.shippment_id, date, &pool).await {
-        Ok(_) => HttpResponse::Created().finish(),
         Err(e) => internal_server_error(e),
+        Ok(_) => {
+            tracing::info!("Shippment {} arrived", form.shippment_id);
+            HttpResponse::Created().finish()
+        }
     }
 }
 

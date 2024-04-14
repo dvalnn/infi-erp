@@ -66,6 +66,30 @@ impl Transformation {
         Ok(())
     }
 
+    pub async fn get_n_next_raw_mat_transf(
+        n: i64,
+        con: &mut PgConnection,
+    ) -> sqlx::Result<Vec<Uuid>> {
+        Ok(sqlx::query!(
+            r#"
+            SELECT t.material_id FROM transformations AS t
+            JOIN items AS i ON t.material_id = i.id
+            WHERE
+                (i.piece_kind = 'P1' OR i.piece_kind = 'P2')
+                AND i.status = 'in_stock'
+                AND t.status = 'pending'
+            ORDER BY date
+            LIMIT $1;
+            "#,
+            n
+        )
+        .fetch_all(con)
+        .await?
+        .iter()
+        .map(|row| row.material_id)
+        .collect())
+    }
+
     pub async fn get_by_id(
         id: i64,
         con: &mut PgConnection,
@@ -144,6 +168,36 @@ impl TransformationDetails {
             day
         )
         .fetch_all(con)
+        .await
+    }
+
+    pub async fn get_by_id(
+        id: Uuid,
+        con: &mut PgConnection,
+    ) -> sqlx::Result<Option<Self>> {
+        sqlx::query_as!(
+            TransformationDetails,
+            r#"
+            SELECT
+
+            t.id as transformation_id,
+            t.material_id,
+            t.product_id,
+
+            recipes.material_kind as "material_kind: PieceKind",
+            recipes.product_kind as "product_kind: PieceKind",
+            recipes.tool as "tool: ToolType",
+            recipes.operation_time
+
+            FROM transformations AS t
+
+            JOIN recipes ON t.recipe_id = recipes.id
+
+            WHERE t.material_id = $1
+            "#,
+            id
+        )
+        .fetch_optional(con)
         .await
     }
 }
