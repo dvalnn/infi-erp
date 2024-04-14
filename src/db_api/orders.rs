@@ -159,7 +159,6 @@ impl Order {
         &self,
         con: &mut PgConnection,
     ) -> sqlx::Result<PgQueryResult> {
-        tracing::info!("Starting production for order {}", self.id);
         query!(
             r#"UPDATE orders
             SET status = $1
