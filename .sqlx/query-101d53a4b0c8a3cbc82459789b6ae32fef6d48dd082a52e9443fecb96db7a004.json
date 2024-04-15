@@ -1,0 +1,65 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                ship.id,\n                ship.supplier_id,\n                ship.request_date,\n                ship.quantity,\n                ship.cost\n            FROM shippments as ship\n            JOIN suppliers as sup ON ship.supplier_id = sup.id\n            WHERE raw_material_kind = $1\n                AND request_date > $2\n                AND request_date + sup.delivery_time = $3\n                AND ship.arrival_date IS NULL\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "supplier_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "request_date",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "quantity",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "cost",
+        "type_info": "Money"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "piece_kind",
+            "kind": {
+              "Enum": [
+                "P1",
+                "P2",
+                "P3",
+                "P4",
+                "P5",
+                "P6",
+                "P7",
+                "P8",
+                "P9"
+              ]
+            }
+          }
+        },
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "101d53a4b0c8a3cbc82459789b6ae32fef6d48dd082a52e9443fecb96db7a004"
+}

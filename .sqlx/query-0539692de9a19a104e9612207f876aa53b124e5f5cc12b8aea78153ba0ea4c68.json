@@ -1,0 +1,65 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                items.id as item_id,\n                items.order_id as order_id,\n                transformations.date as due_date\n            FROM items\n            JOIN transformations ON items.id = transformations.material_id\n            LEFT JOIN raw_material_shippments ON items.id = raw_material_shippments.raw_material_id\n            WHERE items.status = $1\n                AND items.piece_kind = $2\n                AND items.order_id IS NOT NULL\n                AND transformations.date IS NOT NULL\n                AND raw_material_shippments.raw_material_id IS NULL  -- Exclude shipped items\n            ORDER BY transformations.date\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "item_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "order_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "due_date",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "item_status",
+            "kind": {
+              "Enum": [
+                "pending",
+                "in_transit",
+                "in_stock",
+                "delivered",
+                "consumed"
+              ]
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "piece_kind",
+            "kind": {
+              "Enum": [
+                "P1",
+                "P2",
+                "P3",
+                "P4",
+                "P5",
+                "P6",
+                "P7",
+                "P8",
+                "P9"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "0539692de9a19a104e9612207f876aa53b124e5f5cc12b8aea78153ba0ea4c68"
+}

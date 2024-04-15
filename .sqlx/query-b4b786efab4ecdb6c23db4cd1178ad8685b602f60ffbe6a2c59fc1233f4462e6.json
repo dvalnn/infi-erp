@@ -48,7 +48,20 @@
       {
         "ordinal": 5,
         "name": "status: ItemStatus",
-        "type_info": "Varchar"
+        "type_info": {
+          "Custom": {
+            "name": "item_status",
+            "kind": {
+              "Enum": [
+                "pending",
+                "in_transit",
+                "in_stock",
+                "delivered",
+                "consumed"
+              ]
+            }
+          }
+        }
       },
       {
         "ordinal": 6,

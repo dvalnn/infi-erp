@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO shippments (supplier_id, request_date, quantity, cost)\n            VALUES ($1, $2, $3, $4)\n            RETURNING id\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int4",
+        "Int4",
+        "Money"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "046abdd07bfae47f509c3fd4074a0c550c4c96c8496daf76048c8159017cee1e"
+}

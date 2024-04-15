@@ -12,7 +12,13 @@
           "Custom": {
             "name": "item_status",
             "kind": {
-              "Domain": "Varchar"
+              "Enum": [
+                "pending",
+                "in_transit",
+                "in_stock",
+                "delivered",
+                "consumed"
+              ]
             }
           }
         },

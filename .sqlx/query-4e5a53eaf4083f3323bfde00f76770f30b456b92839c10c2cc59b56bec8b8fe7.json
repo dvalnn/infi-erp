@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT t.material_id FROM transformations AS t\n            JOIN items AS i ON t.material_id = i.id\n            WHERE\n                (i.piece_kind = 'P1' OR i.piece_kind = 'P2')\n                AND i.status = 'in_stock'\n                AND t.status = 'pending'\n            ORDER BY date\n            LIMIT $1;\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "material_id",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "4e5a53eaf4083f3323bfde00f76770f30b456b92839c10c2cc59b56bec8b8fe7"
+}

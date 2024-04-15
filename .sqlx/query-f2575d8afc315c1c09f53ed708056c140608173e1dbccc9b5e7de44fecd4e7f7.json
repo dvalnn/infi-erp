@@ -1,0 +1,35 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT COUNT(*) as quantity\n            FROM items\n            WHERE items.status = $1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "quantity",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "item_status",
+            "kind": {
+              "Enum": [
+                "pending",
+                "in_transit",
+                "in_stock",
+                "delivered",
+                "consumed"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "f2575d8afc315c1c09f53ed708056c140608173e1dbccc9b5e7de44fecd4e7f7"
+}

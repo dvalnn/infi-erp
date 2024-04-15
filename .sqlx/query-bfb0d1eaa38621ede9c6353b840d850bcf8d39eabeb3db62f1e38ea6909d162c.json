@@ -1,0 +1,81 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                id,\n                raw_material_kind as \"raw_material_kind: RawMaterial\",\n                min_order_quantity,\n                unit_price,\n                delivery_time\n            FROM suppliers\n            WHERE raw_material_kind = $1 AND delivery_time <= $2\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "raw_material_kind: RawMaterial",
+        "type_info": {
+          "Custom": {
+            "name": "piece_kind",
+            "kind": {
+              "Enum": [
+                "P1",
+                "P2",
+                "P3",
+                "P4",
+                "P5",
+                "P6",
+                "P7",
+                "P8",
+                "P9"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "min_order_quantity",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "unit_price",
+        "type_info": "Money"
+      },
+      {
+        "ordinal": 4,
+        "name": "delivery_time",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "piece_kind",
+            "kind": {
+              "Enum": [
+                "P1",
+                "P2",
+                "P3",
+                "P4",
+                "P5",
+                "P6",
+                "P7",
+                "P8",
+                "P9"
+              ]
+            }
+          }
+        },
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "bfb0d1eaa38621ede9c6353b840d850bcf8d39eabeb3db62f1e38ea6909d162c"
+}
