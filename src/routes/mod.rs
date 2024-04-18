@@ -377,6 +377,19 @@ pub async fn post_material_arrival(
     }
 }
 
+#[get("/deliveries")]
+pub async fn get_deliveries(pool: Data<PgPool>) -> impl Responder {
+    let mut con = match pool.acquire().await {
+        Ok(con) => con,
+        Err(e) => return internal_server_error(e),
+    };
+    let deliveries = match Order::get_deliveries(&mut con).await {
+        Ok(deliveries) => deliveries,
+        Err(e) => return internal_server_error(e),
+    };
+    HttpResponse::Ok().json(deliveries)
+}
+
 // TODO: test material arrivals to warehouse
 // TODO: test delivery confirmations
 #[cfg(test)]

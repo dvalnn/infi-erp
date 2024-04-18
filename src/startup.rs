@@ -110,6 +110,7 @@ impl App {
                     .service(routes::post_warehouse_action)
                     .service(routes::get_expected_shippments)
                     .service(routes::post_material_arrival)
+                    .service(routes::get_deliveries)
                     .app_data(Data::new(self.pool.clone()))
             })
             .bind(addr.clone())
