@@ -4,7 +4,7 @@ use sqlx::postgres::types::PgMoney;
 use sqlx::PgConnection;
 use uuid::Uuid;
 
-use super::{RawMaterial, Shippment};
+use super::{RawMaterial, Shipment};
 
 #[derive(Debug, Clone)]
 pub struct Supplier {
@@ -20,10 +20,10 @@ impl Supplier {
         self.delivery_time <= time
     }
 
-    pub fn shippment(&self, order_quantity: i32, due_date: i32) -> Shippment {
+    pub fn shippment(&self, order_quantity: i32, due_date: i32) -> Shipment {
         let quantity = order_quantity.max(self.min_order_quantity);
         let cost = quantity as i64 * self.unit_price.0;
-        Shippment::new(
+        Shipment::new(
             self.id,
             due_date - self.delivery_time,
             quantity,
