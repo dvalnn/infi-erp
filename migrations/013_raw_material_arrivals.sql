@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS raw_material_shippments(
+CREATE TABLE IF NOT EXISTS raw_material_shipments(
   raw_material_id uuid PRIMARY KEY NOT NULL REFERENCES items(id),
-  shippment_id bigint NOT NULL REFERENCES shippments(id)
+  shipment_id bigint NOT NULL REFERENCES shipments(id)
 );

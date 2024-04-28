@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS shippments (
+CREATE TABLE IF NOT EXISTS shipments (
   id bigint PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
   supplier_id bigint NOT NULL REFERENCES suppliers(id),
   request_date int NOT NULL,

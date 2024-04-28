@@ -77,7 +77,7 @@ supplier(
   delivery_time [NN]
 )
 
-shippments(
+shipments(
   __id__ bigint,
   supplier_id bigint [FK -> supplier(id), NN],
   request_date int [NN],

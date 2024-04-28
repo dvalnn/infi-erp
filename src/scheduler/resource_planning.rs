@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use sqlx::PgPool;
 
 use crate::db_api::{
-    MaterialShippment, RawMaterial, Shipment, Supplier, UnderAllocatedShippment,
+    MaterialShipment, RawMaterial, Shipment, Supplier, UnderAllocatedShipment,
 };
 
 use super::Scheduler;
@@ -16,7 +16,7 @@ pub async fn resolve_material_needs(
     tracing::info!("Processing {:?} needs", variant);
 
     // 1. Get net requirements for the variant by day,
-    //    Get under alocated incomming shippments
+    //    Get under alocated incomming shipments
     //    Get available suppliers
     let qr = query_needed_data(&pool, variant).await?;
     if qr.net_req.is_empty() {
@@ -30,14 +30,14 @@ pub async fn resolve_material_needs(
         qr.net_req
     );
     tracing::trace!("{:#?} suppliers: {:?}", variant, qr.suppliers);
-    tracing::trace!("Under allocated shippments: {:?}", qr.shippments);
+    tracing::trace!("Under allocated shipments: {:?}", qr.shipments);
 
     // 2. Process the data to create purchase orders
     let pr = process_purchases(qr);
 
     tracing::debug!(
-        "Altered shippments: {:#?}",
-        pr.altered_shippments_by_due_date
+        "Altered shipments: {:#?}",
+        pr.altered_shipments_by_due_date
     );
     tracing::debug!(
         "New Purchase orders: {:#?}",
@@ -47,16 +47,16 @@ pub async fn resolve_material_needs(
     // 3. Get pending items from database
     let mut tx = pool.begin().await?;
     let mut pending = variant.get_pending_purchase(&mut tx).await?;
-    let mut material_shippments = Vec::<MaterialShippment>::new();
+    let mut material_shipments = Vec::<MaterialShipment>::new();
 
-    //4. Link pending items to the altered existing shippments
-    for (due_date, shippments) in pr.altered_shippments_by_due_date {
-        for s in shippments {
+    //4. Link pending items to the altered existing shipments
+    for (due_date, shipments) in pr.altered_shipments_by_due_date {
+        for s in shipments {
             let items_to_insert = pending
                 .iter()
                 .filter(|p| p.due_date == due_date)
                 .take(s.added as usize)
-                .map(|p| MaterialShippment::new(p.item_id, s.id))
+                .map(|p| MaterialShipment::new(p.item_id, s.id))
                 .collect::<Vec<_>>();
 
             pending.retain(|p| {
@@ -65,11 +65,11 @@ pub async fn resolve_material_needs(
                     .any(|i| i.raw_material_id() == p.item_id)
             });
 
-            material_shippments.extend(items_to_insert);
+            material_shipments.extend(items_to_insert);
         }
     }
 
-    // 5. Insert new shippments into de dabase to get their IDs
+    // 5. Insert new shipments into de dabase to get their IDs
     // 6. Link remaining pending items to new purchase orders
     for (due_date, po) in pr.purchase_orders_by_due_date {
         let id = po.insert(&mut tx).await?;
@@ -78,7 +78,7 @@ pub async fn resolve_material_needs(
             .iter()
             .filter(|p| p.due_date == due_date)
             .take(po.quantity() as usize)
-            .map(|p| MaterialShippment::new(p.item_id, id))
+            .map(|p| MaterialShipment::new(p.item_id, id))
             .collect::<Vec<_>>();
 
         pending.retain(|p| {
@@ -86,12 +86,12 @@ pub async fn resolve_material_needs(
                 .iter()
                 .any(|i| i.raw_material_id() == p.item_id)
         });
-        material_shippments.extend(items_to_insert);
+        material_shipments.extend(items_to_insert);
     }
 
     // 7. Insert the new populate the material shippemnts join table
     //    with the new tuples
-    for ms in material_shippments {
+    for ms in material_shipments {
         ms.insert(&mut tx).await?;
     }
 
@@ -104,7 +104,7 @@ pub async fn resolve_material_needs(
 
 struct PurchaseProcessingResults {
     pub purchase_orders_by_due_date: HashMap<i32, Shipment>,
-    pub altered_shippments_by_due_date: HashMap<i32, Vec<AlteredShippment>>,
+    pub altered_shipments_by_due_date: HashMap<i32, Vec<AlteredShippment>>,
 }
 
 #[derive(Debug)]
@@ -115,27 +115,27 @@ struct AlteredShippment {
 
 fn process_purchases(mut qr: QueryResults) -> PurchaseProcessingResults {
     // 1. Remove from net requirements the stock already ordered in the past
-    process_under_alocated_shippments(
+    process_under_alocated_shipments(
         &mut qr.net_req,
-        &mut qr.shippments,
+        &mut qr.shipments,
         qr.material_kind,
     );
 
     // 2. retain only days with net requirements
-    //    retain only under allocated shippments to which stock
+    //    retain only under allocated shipments to which stock
     //    was allocated and need to be updated onnthe database
     qr.net_req.retain(|_, quantity| *quantity > 0);
-    qr.shippments.retain(|_, shippments| !shippments.is_empty());
+    qr.shipments.retain(|_, shipments| !shipments.is_empty());
     tracing::trace!(
         "Net requirements after shippment adjusts: {:?}",
         qr.net_req
     );
 
     let altered_shippments = qr
-        .shippments
+        .shipments
         .iter()
-        .map(|(day, shippments)| {
-            let altered = shippments
+        .map(|(day, shipments)| {
+            let altered = shipments
                 .iter()
                 .map(|s| AlteredShippment {
                     id: s.id,
@@ -180,17 +180,17 @@ fn process_purchases(mut qr: QueryResults) -> PurchaseProcessingResults {
 
     PurchaseProcessingResults {
         purchase_orders_by_due_date: purchase_orders,
-        altered_shippments_by_due_date: altered_shippments,
+        altered_shipments_by_due_date: altered_shippments,
     }
 }
 
-fn process_under_alocated_shippments(
+fn process_under_alocated_shipments(
     net_req: &mut HashMap<i32, i32>,
-    shippments: &mut HashMap<i32, Vec<UnderAllocatedShippment>>,
+    shipments: &mut HashMap<i32, Vec<UnderAllocatedShipment>>,
     material_kind: RawMaterial,
 ) {
     for (day, quantity) in net_req.iter_mut() {
-        let Some(under_allocated) = shippments.get_mut(day) else {
+        let Some(under_allocated) = shipments.get_mut(day) else {
             continue;
         };
 
@@ -213,14 +213,14 @@ fn process_under_alocated_shippments(
             );
         }
 
-        // remove shippments to which nothing was allocated
+        // remove shipments to which nothing was allocated
         under_allocated.retain(|s| s.added.is_some());
     }
 }
 
 struct QueryResults {
     pub current_date: u32,
-    pub shippments: HashMap<i32, Vec<UnderAllocatedShippment>>,
+    pub shipments: HashMap<i32, Vec<UnderAllocatedShipment>>,
     pub suppliers: Vec<Supplier>,
     pub net_req: HashMap<i32, i32>,
     pub material_kind: RawMaterial,
@@ -235,18 +235,18 @@ async fn query_needed_data(
     let net_req = variant.get_net_requirements(&mut conn).await?;
     let suppliers = Supplier::get_by_item_kind(variant, &mut conn).await?;
 
-    let mut shippment_map = HashMap::new();
+    let mut shipment_map = HashMap::new();
     for day in net_req.keys() {
-        let shippments =
+        let shipments =
             Shipment::get_under_allocated(*day, variant, &mut conn).await?;
-        if !shippments.is_empty() {
-            shippment_map.insert(*day, shippments);
+        if !shipments.is_empty() {
+            shipment_map.insert(*day, shipments);
         }
     }
 
     let query_results = QueryResults {
         current_date: Scheduler::get_date(),
-        shippments: shippment_map,
+        shipments: shipment_map,
         suppliers,
         net_req,
         material_kind: variant,

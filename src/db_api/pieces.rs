@@ -80,11 +80,11 @@ impl RawMaterial {
             SELECT COUNT(items.id) as quantity, transformations.date as date
             FROM items
             JOIN transformations ON items.id = transformations.material_id
-            LEFT JOIN raw_material_shippments ON items.id = raw_material_shippments.raw_material_id
+            LEFT JOIN raw_material_shipments ON items.id = raw_material_shipments.raw_material_id
             WHERE items.status = $1
                 AND items.piece_kind = $2
                 AND transformations.date IS NOT NULL
-                AND raw_material_shippments.raw_material_id IS NULL
+                AND raw_material_shipments.raw_material_id IS NULL
             GROUP BY transformations.date
             "#,
             ItemStatus::Pending as ItemStatus,
@@ -133,12 +133,12 @@ impl RawMaterial {
                 transformations.date as due_date
             FROM items
             JOIN transformations ON items.id = transformations.material_id
-            LEFT JOIN raw_material_shippments ON items.id = raw_material_shippments.raw_material_id
+            LEFT JOIN raw_material_shipments ON items.id = raw_material_shipments.raw_material_id
             WHERE items.status = $1
                 AND items.piece_kind = $2
                 AND items.order_id IS NOT NULL
                 AND transformations.date IS NOT NULL
-                AND raw_material_shippments.raw_material_id IS NULL  -- Exclude shipped items
+                AND raw_material_shipments.raw_material_id IS NULL  -- Exclude shiped items
             ORDER BY transformations.date
             "#,
             ItemStatus::Pending as ItemStatus,

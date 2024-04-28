@@ -13,7 +13,7 @@ pub struct Shipment {
 }
 
 #[derive(Debug, Clone)]
-pub struct UnderAllocatedShippment {
+pub struct UnderAllocatedShipment {
     pub id: i64,
     pub extra_quantity: i64,
     pub added: Option<i64>,
@@ -48,7 +48,7 @@ impl Shipment {
             WITH item_prices AS (
             SELECT unit_price
             FROM suppliers
-            JOIN shippments AS sh
+            JOIN shipments AS sh
                 ON sh.supplier_id = suppliers.id WHERE sh.id = $1
             )
             UPDATE
@@ -61,10 +61,10 @@ impl Shipment {
             (
                 SELECT items.id
                 FROM items
-                JOIN raw_material_shippments AS rs
+                JOIN raw_material_shipments AS rs
                     ON rs.raw_material_id = items.id
-                JOIN shippments AS s
-                    ON rs.shippment_id = s.id
+                JOIN shipments AS s
+                    ON rs.shipment_id = s.id
                 WHERE s.id = $1
             )
             "#,
@@ -75,7 +75,7 @@ impl Shipment {
 
         sqlx::query!(
             r#"
-            UPDATE shippments
+            UPDATE shipments
             SET arrival_date = $1
             WHERE id = $2
             "#,
@@ -99,7 +99,7 @@ impl Shipment {
                 ship.id,
                 ship.quantity,
                 sup.raw_material_kind as "material_type: RawMaterial"
-            FROM shippments AS ship
+            FROM shipments AS ship
             JOIN suppliers AS sup ON ship.supplier_id = sup.id
             WHERE request_date + delivery_time = $1
             "#,
@@ -124,7 +124,7 @@ impl Shipment {
                 ship.request_date,
                 ship.quantity,
                 ship.cost
-            FROM shippments as ship
+            FROM shipments as ship
             JOIN suppliers as sup ON ship.supplier_id = sup.id
             WHERE raw_material_kind = $1
                 AND request_date > $2
@@ -143,19 +143,19 @@ impl Shipment {
         due_date: i32,
         material_kind: RawMaterial,
         con: &mut PgConnection,
-    ) -> sqlx::Result<Vec<UnderAllocatedShippment>> {
+    ) -> sqlx::Result<Vec<UnderAllocatedShipment>> {
         Ok(sqlx::query!(
             r#"
-            SELECT shipp.id, shipp.quantity-COUNT(item.id) as extra_quantity
-            FROM shippments as shipp
-            JOIN raw_material_shippments as ord ON shipp.id = ord.shippment_id
-            JOIN suppliers as sup ON shipp.supplier_id = sup.id
+            SELECT ship.id, ship.quantity-COUNT(item.id) as extra_quantity
+            FROM shipments as ship
+            JOIN raw_material_shipments as ord ON ship.id = ord.shipment_id
+            JOIN suppliers as sup ON ship.supplier_id = sup.id
             JOIN items as item ON ord.raw_material_id = item.id
-            WHERE shipp.request_date + sup.delivery_time = $1
+            WHERE ship.request_date + sup.delivery_time = $1
                 AND item.piece_kind = $2
-                AND shipp.arrival_date IS NULL
-            GROUP BY shipp.id
-            HAVING shipp.quantity > COUNT(item.id)
+                AND ship.arrival_date IS NULL
+            GROUP BY ship.id
+            HAVING ship.quantity > COUNT(item.id)
             "#,
             due_date,
             material_kind as RawMaterial
@@ -163,7 +163,7 @@ impl Shipment {
         .fetch_all(con)
         .await?
         .into_iter()
-        .map(|row| UnderAllocatedShippment {
+        .map(|row| UnderAllocatedShipment {
             id: row.id,
             extra_quantity: row.extra_quantity.expect("is always Some"),
             added: None,
@@ -174,7 +174,7 @@ impl Shipment {
     pub async fn insert(&self, con: &mut PgConnection) -> sqlx::Result<i64> {
         let id = sqlx::query!(
             r#"
-            INSERT INTO shippments (supplier_id, request_date, quantity, cost)
+            INSERT INTO shipments (supplier_id, request_date, quantity, cost)
             VALUES ($1, $2, $3, $4)
             RETURNING id
             "#,
@@ -200,7 +200,7 @@ impl Shipment {
 
         sqlx::query!(
             r#"
-            UPDATE shippments
+            UPDATE shipments
             SET supplier_id = $1, request_date = $2, quantity = $3, cost = $4
             WHERE id = $5
             "#,
@@ -246,12 +246,12 @@ impl Shipment {
     }
 }
 
-pub struct MaterialShippment {
+pub struct MaterialShipment {
     raw_material_id: Uuid,
     shippment_id: i64,
 }
 
-impl MaterialShippment {
+impl MaterialShipment {
     pub fn new(raw_material_id: Uuid, shippment_id: i64) -> Self {
         Self {
             raw_material_id,
@@ -262,7 +262,7 @@ impl MaterialShippment {
     pub async fn insert(&self, con: &mut PgConnection) -> sqlx::Result<()> {
         let res = sqlx::query!(
             r#"
-            INSERT INTO raw_material_shippments (raw_material_id, shippment_id)
+            INSERT INTO raw_material_shipments (raw_material_id, shipment_id)
             VALUES ($1, $2)
             "#,
             self.raw_material_id,
@@ -273,7 +273,7 @@ impl MaterialShippment {
 
         if res.rows_affected() > 0 {
             tracing::debug!(
-            "Inserted raw_material_shippments for material: {} and shippment: {}",
+            "Inserted raw_material_shipments for material: {} and shipment: {}",
             self.raw_material_id,
             self.shippment_id);
         }
