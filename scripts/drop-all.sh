@@ -14,6 +14,7 @@ sql_script=$(
 DO $$
 DECLARE t record;
 DECLARE r record;
+DECLARE p record;
 BEGIN
   -- Drop tables (order matters to avoid dependency issues)
   FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public') LOOP
@@ -24,6 +25,11 @@ BEGIN
   FOR t IN (SELECT typname FROM pg_type WHERE typnamespace = '2200') LOOP
     EXECUTE 'DROP TYPE IF EXISTS ' || quote_ident(t.typname) || ' CASCADE';
   END LOOP;
+
+  FOR p IN (SELECT proname FROM pg_proc WHERE pronamespace = '2200') LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || quote_ident(p.proname) || ' CASCADE';
+  END LOOP;
+
 END $$;
 EOM
 )

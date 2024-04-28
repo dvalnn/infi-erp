@@ -14,7 +14,7 @@ use uuid::Uuid;
 
 use crate::{
     db_api::{
-        Item, Order, OrderStatus, RawMaterial, Shippment, Transformation,
+        Item, Order, OrderStatus, RawMaterial, Shipment, Transformation,
         TransformationDetails,
     },
     scheduler::{Scheduler, CURRENT_DATE},
@@ -323,13 +323,13 @@ pub async fn post_warehouse_action(
 
 #[derive(Debug, Deserialize, Serialize)]
 struct ExpectedShipmentForm {
-    shippment_id: i64,
+    shipment_id: i64,
     material_type: RawMaterial,
     quantity: i32,
 }
 
 #[get("/materials/expected")]
-pub async fn get_expected_shippments(
+pub async fn get_expected_shipments(
     query: Query<DayForm>,
     pool: Data<PgPool>,
 ) -> impl Responder {
@@ -339,12 +339,12 @@ pub async fn get_expected_shippments(
     };
 
     let expected =
-        Shippment::get_expected_for_arrival(query.day as i32, &mut con);
+        Shipment::get_expected_for_arrival(query.day as i32, &mut con);
     let response_body = match expected.await {
         Ok(shipp_vec) => shipp_vec
             .iter()
             .map(|s| ExpectedShipmentForm {
-                shippment_id: s.id,
+                shipment_id: s.id,
                 material_type: s.material_type,
                 quantity: s.quantity,
             })
@@ -357,24 +357,37 @@ pub async fn get_expected_shippments(
 
 #[derive(Debug, Deserialize)]
 #[cfg_attr(test, derive(serde::Serialize))]
-struct ShippmentArrivalForm {
-    shippment_id: i64,
+struct ShipmentArrivalForm {
+    shipment_id: i64,
 }
 
 #[post("/materials/arrivals")]
 pub async fn post_material_arrival(
-    form: Form<ShippmentArrivalForm>,
+    form: Form<ShipmentArrivalForm>,
     pool: Data<PgPool>,
 ) -> impl Responder {
     let date = Scheduler::get_date() as i32;
 
-    match Shippment::arrived(form.shippment_id, date, &pool).await {
+    match Shipment::arrived(form.shipment_id, date, &pool).await {
         Err(e) => internal_server_error(e),
         Ok(_) => {
-            tracing::info!("Shippment {} arrived", form.shippment_id);
+            tracing::info!("Shippment {} arrived", form.shipment_id);
             HttpResponse::Created().finish()
         }
     }
+}
+
+#[get("/deliveries")]
+pub async fn get_deliveries(pool: Data<PgPool>) -> impl Responder {
+    let mut con = match pool.acquire().await {
+        Ok(con) => con,
+        Err(e) => return internal_server_error(e),
+    };
+    let deliveries = match Order::get_deliveries(&mut con).await {
+        Ok(deliveries) => deliveries,
+        Err(e) => return internal_server_error(e),
+    };
+    HttpResponse::Ok().json(deliveries)
 }
 
 // TODO: test material arrivals to warehouse

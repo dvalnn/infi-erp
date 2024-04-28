@@ -49,6 +49,13 @@ pub struct Order {
     delivery_day: Option<i32>,
 }
 
+#[derive(Debug, serde::Serialize)]
+pub struct Delivery {
+    id: Uuid,
+    piece: FinalPiece,
+    quantity: i32,
+}
+
 impl Order {
     pub fn new(
         client_id: Uuid,
@@ -185,6 +192,25 @@ impl Order {
             self.id,
         )
         .execute(con)
+        .await
+    }
+
+    pub async fn get_deliveries(
+        con: &mut PgConnection,
+    ) -> sqlx::Result<Vec<Delivery>> {
+        sqlx::query_as!(
+            Delivery,
+            r#"
+            SELECT
+                id,
+                piece as "piece: FinalPiece",
+                quantity
+            FROM orders
+            WHERE status = $1
+            "#,
+            OrderStatus::Completed as OrderStatus
+        )
+        .fetch_all(con)
         .await
     }
 

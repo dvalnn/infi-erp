@@ -4,7 +4,7 @@ use uuid::Uuid;
 use super::RawMaterial;
 
 #[derive(Debug)]
-pub struct Shippment {
+pub struct Shipment {
     id: Option<i64>,
     supplier_id: i64,
     request_date: i32,
@@ -26,7 +26,7 @@ pub struct ExpectedShippment {
     pub quantity: i32,
 }
 
-impl Shippment {
+impl Shipment {
     pub fn new(
         supplier_id: i64,
         request_date: i32,
@@ -114,9 +114,9 @@ impl Shippment {
         arrival_date: i32,
         current_date: i32,
         con: &mut PgConnection,
-    ) -> sqlx::Result<Option<Shippment>> {
+    ) -> sqlx::Result<Option<Shipment>> {
         sqlx::query_as!(
-            Shippment,
+            Shipment,
             r#"
             SELECT
                 ship.id,

@@ -3,8 +3,7 @@ use std::collections::HashMap;
 use sqlx::PgPool;
 
 use crate::db_api::{
-    MaterialShippment, RawMaterial, Shippment, Supplier,
-    UnderAllocatedShippment,
+    MaterialShippment, RawMaterial, Shipment, Supplier, UnderAllocatedShippment,
 };
 
 use super::Scheduler;
@@ -104,7 +103,7 @@ pub async fn resolve_material_needs(
 }
 
 struct PurchaseProcessingResults {
-    pub purchase_orders_by_due_date: HashMap<i32, Shippment>,
+    pub purchase_orders_by_due_date: HashMap<i32, Shipment>,
     pub altered_shippments_by_due_date: HashMap<i32, Vec<AlteredShippment>>,
 }
 
@@ -239,7 +238,7 @@ async fn query_needed_data(
     let mut shippment_map = HashMap::new();
     for day in net_req.keys() {
         let shippments =
-            Shippment::get_under_allocated(*day, variant, &mut conn).await?;
+            Shipment::get_under_allocated(*day, variant, &mut conn).await?;
         if !shippments.is_empty() {
             shippment_map.insert(*day, shippments);
         }
