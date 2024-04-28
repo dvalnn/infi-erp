@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT COUNT(items.id) as quantity, transformations.date as date\n            FROM items\n            JOIN transformations ON items.id = transformations.material_id\n            LEFT JOIN raw_material_shippments ON items.id = raw_material_shippments.raw_material_id\n            WHERE items.status = $1\n                AND items.piece_kind = $2\n                AND transformations.date IS NOT NULL\n                AND raw_material_shippments.raw_material_id IS NULL\n            GROUP BY transformations.date\n            ",
+  "query": "\n            SELECT COUNT(items.id) as quantity, transformations.date as date\n            FROM items\n            JOIN transformations ON items.id = transformations.material_id\n            LEFT JOIN raw_material_shipments ON items.id = raw_material_shipments.raw_material_id\n            WHERE items.status = $1\n                AND items.piece_kind = $2\n                AND transformations.date IS NOT NULL\n                AND raw_material_shipments.raw_material_id IS NULL\n            GROUP BY transformations.date\n            ",
   "describe": {
     "columns": [
       {
@@ -55,5 +55,5 @@
       true
     ]
   },
-  "hash": "2e192c80186eb0453f83376ce096d109a3f19c392856631fa0092eb9ea17f224"
+  "hash": "34b47070336b598bf1f1f0e43b9a9db1280c08c6547ee8b5cc4ed7baed58fe23"
 }

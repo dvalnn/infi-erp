@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE shipments\n            SET supplier_id = $1, request_date = $2, quantity = $3, cost = $4\n            WHERE id = $5\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int4",
+        "Int4",
+        "Money",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c6d62550f71fce2adcde9be2239f93c6fb085644e4f2190c808cf25750c8c9bf"
+}
