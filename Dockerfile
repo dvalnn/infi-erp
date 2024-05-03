@@ -20,7 +20,13 @@ RUN cargo build --release --target x86_64-unknown-linux-musl
 
 # Create a new stage with a minimal image
 FROM scratch
+WORKDIR /
 COPY --from=builder /infi-erp/target/x86_64-unknown-linux-musl/release/infi-erp /infi-erp
+# Add configuration files
+COPY --from=builder /infi-erp/.env .env
+COPY --from=builder /infi-erp/.sqlx .sqlx
+COPY --from=builder /infi-erp/migrations migrations
+COPY --from=builder /infi-erp/configuration.yml configuration.yml
 ENTRYPOINT ["/infi-erp"]
-EXPOSE 3000
+EXPOSE 8080
 EXPOSE 24680

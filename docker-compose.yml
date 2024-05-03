@@ -8,7 +8,6 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
     ports:
       - "5432:5432"
-
     volumes:
       - db:/var/lib/postgresql/data
 
@@ -20,13 +19,21 @@ services:
       PGADMIN_LISTEN_PORT: 80
     ports:
       - 15432:80
-
     volumes:
-      - pgadmin:/var/lib/pgadmin
+      - pgadmin_data:/var/lib/pgadmin
     depends_on:
       - postgres
 
-  api:
+  grafana:
+    image: grafana/grafana-oss:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana-infi
+    depends_on:
+      - postgres
+
+  erp:
     image: dvalinn/infi-erp
     environment:
       DATABASE_URL: "postgres://postgres:${POSTGRES_PASSWORD}@db:5432"
@@ -34,13 +41,15 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - "8080:8080"
       - "24680:24680"
     depends_on:
       - postgres
 
 volumes:
-  postgres:
+  db:
     driver: local
-  pgadmin:
+  pgadmin_data:
+    driver: local
+  grafana_data:
     driver: local
