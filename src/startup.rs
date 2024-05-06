@@ -49,12 +49,12 @@ impl AppBuilder {
         tracing::info!("Initializing DB connection...");
 
         let pool = sqlx::PgPool::connect_lazy(&self.database_url)?;
-        let notification_listener =
-            sqlx::postgres::PgListener::connect(&self.database_url).await?;
         if let Err(e) = sqlx::migrate!("./migrations").run(&pool).await {
             tracing::error!("Error running migrations: {e}");
             return Err(anyhow!(e));
         }
+        let notification_listener =
+            sqlx::postgres::PgListener::connect(&self.database_url).await?;
 
         tracing::info!("DB initialization successfull.");
 
