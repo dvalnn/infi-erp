@@ -7,7 +7,7 @@ use sqlx::{
 
 use crate::scheduler::{self, Scheduler};
 
-use super::{pieces::FinalPiece, PieceKind};
+use super::{pieces::FinalPiece, ItemStatus, PieceKind};
 
 #[derive(Debug, Clone, Copy, PartialEq, sqlx::Type)]
 #[sqlx(type_name = "order_status", rename_all = "lowercase")]
@@ -211,6 +211,26 @@ impl Order {
             OrderStatus::Completed as OrderStatus
         )
         .fetch_all(con)
+        .await
+    }
+
+    pub async fn confirm_delivery(
+        con: &mut PgConnection,
+        order_id: Uuid,
+        delivery_day: u32,
+    ) -> sqlx::Result<PgQueryResult> {
+        query!(
+            r#"
+            UPDATE orders
+            SET status = $1,
+            delivery_day = $2
+            WHERE id = $3
+            "#,
+            OrderStatus::Delivered as OrderStatus,
+            delivery_day as i32,
+            order_id,
+        )
+        .execute(con)
         .await
     }
 
