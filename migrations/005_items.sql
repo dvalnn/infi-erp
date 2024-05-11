@@ -50,3 +50,25 @@ AFTER UPDATE OF status ON items
 FOR EACH ROW
 EXECUTE FUNCTION check_if_order_is_completed();
 
+CREATE FUNCTION deliver_items()
+RETURNS TRIGGER AS $$
+  BEGIN
+
+    IF NEW.status = 'delivered' THEN
+      UPDATE items
+      SET status = 'delivered'
+      WHERE order_id = NEW.id
+        AND status = 'in_stock'
+        AND piece_kind = NEW.piece;
+      RAISE NOTICE 'Order % is delivered', NEW.id;
+    END IF;
+
+    RETURN NEW;
+  END;
+$$
+LANGUAGE plpgsql;
+
+CREATE TRIGGER deliver_items
+AFTER UPDATE OF status ON orders
+FOR EACH ROW
+EXECUTE FUNCTION deliver_items();

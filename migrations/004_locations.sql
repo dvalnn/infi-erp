@@ -9,7 +9,8 @@ CREATE TABLE IF NOT EXISTS production_lines (
   code char(2) PRIMARY KEY
 );
 
-INSERT INTO production_lines (code) VALUES ('L1'),
+INSERT INTO production_lines (code) VALUES ('L0'),
+                                           ('L1'),
                                            ('L2'),
                                            ('L3'),
                                            ('L4'),
