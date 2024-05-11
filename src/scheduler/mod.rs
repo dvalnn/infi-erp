@@ -12,7 +12,7 @@ use crate::{
 };
 
 pub const TIME_IN_DAY: i64 = 60; // in the simulation, 1 day is 60 seconds
-pub static CURRENT_DATE: Lazy<RwLock<u32>> = Lazy::new(|| RwLock::new(1));
+static CURRENT_DATE: Lazy<RwLock<u32>> = Lazy::new(|| RwLock::new(1));
 
 pub struct Scheduler {
     pool: PgPool,
@@ -26,6 +26,11 @@ impl Scheduler {
 
     pub fn get_date() -> u32 {
         *CURRENT_DATE.read().expect("lock was poisoned")
+    }
+
+    pub fn set_date(new_date: u32) {
+        *CURRENT_DATE.write().expect("lock was poisoned") = new_date;
+        tracing::info!("Date set to {}", new_date);
     }
 
     async fn process_new_order(
