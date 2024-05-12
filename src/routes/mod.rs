@@ -328,7 +328,7 @@ pub async fn get_expected_shipments(
     let expected =
         Shipment::get_expected_for_arrival(query.day as i32, &mut con);
     let response_body = match expected.await {
-        Ok(shipp_vec) => shipp_vec
+        Ok(ship_vec) => ship_vec
             .iter()
             .map(|s| ExpectedShipmentForm {
                 shipment_id: s.id,
@@ -358,7 +358,7 @@ pub async fn post_material_arrival(
     match Shipment::arrived(form.shipment_id, date, &pool).await {
         Err(e) => internal_server_error(e),
         Ok(_) => {
-            tracing::info!("Shippment {} arrived", form.shipment_id);
+            tracing::info!("Shipment {} arrived", form.shipment_id);
             HttpResponse::Created().finish()
         }
     }

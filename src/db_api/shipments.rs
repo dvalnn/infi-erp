@@ -20,7 +20,7 @@ pub struct UnderAllocatedShipment {
 }
 
 #[derive(Debug)]
-pub struct ExpectedShippment {
+pub struct ExpectedShipment {
     pub id: i64,
     pub material_type: RawMaterial,
     pub quantity: i32,
@@ -61,9 +61,9 @@ impl Shipment {
     pub async fn get_expected_for_arrival(
         date: i32,
         con: &mut PgConnection,
-    ) -> sqlx::Result<Vec<ExpectedShippment>> {
+    ) -> sqlx::Result<Vec<ExpectedShipment>> {
         sqlx::query_as!(
-            ExpectedShippment,
+            ExpectedShipment,
             r#"
             SELECT
                 ship.id,
@@ -80,7 +80,7 @@ impl Shipment {
         .await
     }
 
-    pub async fn get_existing_shippment(
+    pub async fn get_existing_shipment(
         kind: RawMaterial,
         arrival_date: i32,
         current_date: i32,
@@ -158,14 +158,14 @@ impl Shipment {
         .await?
         .id;
 
-        tracing::info!("Inserted shippment with id: {}", id);
+        tracing::info!("Inserted shipment with id: {}", id);
 
         Ok(id)
     }
 
     pub async fn update(&self, con: &mut PgConnection) -> sqlx::Result<i64> {
         let Some(id) = self.id else {
-            tracing::error!("Shippment update failed: id not found");
+            tracing::error!("Shipment update failed: id not found");
             return Err(sqlx::Error::RowNotFound);
         };
 
@@ -184,7 +184,7 @@ impl Shipment {
         .execute(con)
         .await?;
 
-        tracing::info!("Updated shippment with id: {}", id);
+        tracing::info!("Updated shipment with id: {}", id);
 
         Ok(id)
     }
@@ -219,14 +219,14 @@ impl Shipment {
 
 pub struct MaterialShipment {
     raw_material_id: Uuid,
-    shippment_id: i64,
+    shipment_id: i64,
 }
 
 impl MaterialShipment {
-    pub fn new(raw_material_id: Uuid, shippment_id: i64) -> Self {
+    pub fn new(raw_material_id: Uuid, shipment_id: i64) -> Self {
         Self {
             raw_material_id,
-            shippment_id,
+            shipment_id,
         }
     }
 
@@ -237,7 +237,7 @@ impl MaterialShipment {
             VALUES ($1, $2)
             "#,
             self.raw_material_id,
-            self.shippment_id,
+            self.shipment_id,
         )
         .execute(con)
         .await?;
@@ -246,7 +246,7 @@ impl MaterialShipment {
             tracing::debug!(
             "Inserted raw_material_shipments for material: {} and shipment: {}",
             self.raw_material_id,
-            self.shippment_id);
+            self.shipment_id);
         }
 
         Ok(())

@@ -20,7 +20,7 @@ impl Supplier {
         self.delivery_time <= time
     }
 
-    pub fn shippment(&self, order_quantity: i32, due_date: i32) -> Shipment {
+    pub fn shipment(&self, order_quantity: i32, due_date: i32) -> Shipment {
         let quantity = order_quantity.max(self.min_order_quantity);
         let cost = quantity as i64 * self.unit_price.0;
         Shipment::new(

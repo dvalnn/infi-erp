@@ -89,7 +89,7 @@ pub async fn resolve_material_needs(
         material_shipments.extend(items_to_insert);
     }
 
-    // 7. Insert the new populate the material shippemnts join table
+    // 7. Insert the new populate the material shipments join table
     //    with the new tuples
     for ms in material_shipments {
         ms.insert(&mut tx).await?;
@@ -104,11 +104,11 @@ pub async fn resolve_material_needs(
 
 struct PurchaseProcessingResults {
     pub purchase_orders_by_due_date: HashMap<i32, Shipment>,
-    pub altered_shipments_by_due_date: HashMap<i32, Vec<AlteredShippment>>,
+    pub altered_shipments_by_due_date: HashMap<i32, Vec<AlteredShipment>>,
 }
 
 #[derive(Debug)]
-struct AlteredShippment {
+struct AlteredShipment {
     pub id: i64,
     pub added: i64,
 }
@@ -127,17 +127,17 @@ fn process_purchases(mut qr: QueryResults) -> PurchaseProcessingResults {
     qr.net_req.retain(|_, quantity| *quantity > 0);
     qr.shipments.retain(|_, shipments| !shipments.is_empty());
     tracing::trace!(
-        "Net requirements after shippment adjusts: {:?}",
+        "Net requirements after shipment adjusts: {:?}",
         qr.net_req
     );
 
-    let altered_shippments = qr
+    let altered_shipments = qr
         .shipments
         .iter()
         .map(|(day, shipments)| {
             let altered = shipments
                 .iter()
-                .map(|s| AlteredShippment {
+                .map(|s| AlteredShipment {
                     id: s.id,
                     added: s.added.expect("added is always Some"),
                 })
@@ -162,10 +162,10 @@ fn process_purchases(mut qr: QueryResults) -> PurchaseProcessingResults {
         let Some(cheapest_purchase) = suppliers
             .into_iter()
             .filter_map(|s| match s.can_deliver_in(available_time) {
-                true => Some(s.shippment(*quantity, *due_date)),
+                true => Some(s.shipment(*quantity, *due_date)),
                 false => None,
             })
-            .min_by_key(|shippment| shippment.cost().0)
+            .min_by_key(|shipment| shipment.cost().0)
         else {
             tracing::warn!(
                 "No supplier can deliver {:#?} in time for day {}",
@@ -180,7 +180,7 @@ fn process_purchases(mut qr: QueryResults) -> PurchaseProcessingResults {
 
     PurchaseProcessingResults {
         purchase_orders_by_due_date: purchase_orders,
-        altered_shipments_by_due_date: altered_shippments,
+        altered_shipments_by_due_date: altered_shipments,
     }
 }
 
@@ -205,7 +205,7 @@ fn process_under_alocated_shipments(
             s.added = Some(allocated);
 
             tracing::info!(
-                "Allocated {} free slot from shippment id {} for day {}'s {:#?} needs",
+                "Allocated {} free slot from shipment id {} for day {}'s {:#?} needs",
                 allocated,
                 s.id,
                 day,

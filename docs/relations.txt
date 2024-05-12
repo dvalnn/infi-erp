@@ -87,6 +87,6 @@ shipments(
 
 raw_material_arrivals(
   __raw_material_id__ bigint [FK -> item(id)],
-  shippment_id bigint [FK -> shippment(id)],
+  shipment_id bigint [FK -> shippment(id)],
   arrival_date int [NN],
 )
