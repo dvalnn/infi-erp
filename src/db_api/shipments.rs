@@ -45,36 +45,6 @@ impl Shipment {
     pub async fn arrived(id: i64, date: i32, con: &PgPool) -> sqlx::Result<()> {
         sqlx::query!(
             r#"
-            WITH item_prices AS (
-            SELECT unit_price
-            FROM suppliers
-            JOIN shipments AS sh
-                ON sh.supplier_id = suppliers.id WHERE sh.id = $1
-            )
-            UPDATE
-                items
-            SET
-                status = 'in_stock',
-                warehouse = 'W1',
-                acc_cost = (SELECT unit_price FROM item_prices)
-            WHERE id IN
-            (
-                SELECT items.id
-                FROM items
-                JOIN raw_material_shipments AS rs
-                    ON rs.raw_material_id = items.id
-                JOIN shipments AS s
-                    ON rs.shipment_id = s.id
-                WHERE s.id = $1
-            )
-            "#,
-            id,
-        )
-        .execute(con)
-        .await?;
-
-        sqlx::query!(
-            r#"
             UPDATE shipments
             SET arrival_date = $1
             WHERE id = $2
@@ -102,6 +72,7 @@ impl Shipment {
             FROM shipments AS ship
             JOIN suppliers AS sup ON ship.supplier_id = sup.id
             WHERE request_date + delivery_time = $1
+              AND arrival_date IS NULL
             "#,
             date
         )

@@ -6,3 +6,38 @@ CREATE TABLE IF NOT EXISTS shipments (
   quantity int NOT NULL,
   cost money NOT NULL
 );
+
+CREATE FUNCTION shipment_arrived() RETURNS TRIGGER AS $$
+    BEGIN
+        WITH item_prices AS (
+        SELECT unit_price
+        FROM suppliers
+        JOIN shipments AS sh
+            ON sh.supplier_id = suppliers.id WHERE sh.id = NEW.id
+        )
+        UPDATE
+            items
+        SET
+            status = 'in_stock',
+            warehouse = 'W1',
+            acc_cost = (SELECT unit_price FROM item_prices)
+        WHERE id IN
+        (
+            SELECT items.id
+            FROM items
+            JOIN raw_material_shipments AS rs
+                ON rs.raw_material_id = items.id
+            JOIN shipments AS s
+                ON rs.shipment_id = s.id
+            WHERE s.id = NEW.id
+        );
+
+    RAISE NOTICE 'Shipment % arrived', NEW.id;
+    RETURN NEW;
+    END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER shipment_arrived_trigger
+AFTER UPDATE OF arrival_date ON shipments
+FOR EACH ROW
+EXECUTE FUNCTION shipment_arrived();
