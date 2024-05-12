@@ -122,7 +122,7 @@ impl Shipment {
             JOIN raw_material_shipments as ord ON ship.id = ord.shipment_id
             JOIN suppliers as sup ON ship.supplier_id = sup.id
             JOIN items as item ON ord.raw_material_id = item.id
-            WHERE ship.request_date + sup.delivery_time = $1
+            WHERE ship.request_date + sup.delivery_time <= $1
                 AND item.piece_kind = $2
                 AND ship.arrival_date IS NULL
             GROUP BY ship.id

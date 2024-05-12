@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT ship.id, ship.quantity-COUNT(item.id) as extra_quantity\n            FROM shipments as ship\n            JOIN raw_material_shipments as ord ON ship.id = ord.shipment_id\n            JOIN suppliers as sup ON ship.supplier_id = sup.id\n            JOIN items as item ON ord.raw_material_id = item.id\n            WHERE ship.request_date + sup.delivery_time = $1\n                AND item.piece_kind = $2\n                AND ship.arrival_date IS NULL\n            GROUP BY ship.id\n            HAVING ship.quantity > COUNT(item.id)\n            ",
+  "query": "\n            SELECT ship.id, ship.quantity-COUNT(item.id) as extra_quantity\n            FROM shipments as ship\n            JOIN raw_material_shipments as ord ON ship.id = ord.shipment_id\n            JOIN suppliers as sup ON ship.supplier_id = sup.id\n            JOIN items as item ON ord.raw_material_id = item.id\n            WHERE ship.request_date + sup.delivery_time <= $1\n                AND item.piece_kind = $2\n                AND ship.arrival_date IS NULL\n            GROUP BY ship.id\n            HAVING ship.quantity > COUNT(item.id)\n            ",
   "describe": {
     "columns": [
       {
@@ -42,5 +42,5 @@
       null
     ]
   },
-  "hash": "68881e13ebf690a608382a3cf64e73db0d676c000fe9a7dc4b75cf5f589ccdab"
+  "hash": "5565407cd743258d06228c72c3b44acaa2c00f2cd1ebb5c89e2fa10c30d5ff26"
 }

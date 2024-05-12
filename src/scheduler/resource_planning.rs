@@ -8,7 +8,45 @@ use crate::db_api::{
 
 use super::Scheduler;
 
+struct QueryResults {
+    pub current_date: u32,
+    pub shipments: HashMap<i32, Vec<UnderAllocatedShipment>>,
+    pub suppliers: Vec<Supplier>,
+    pub net_req: HashMap<i32, i32>,
+    pub material_kind: RawMaterial,
+}
+
+async fn query_needed_data(
+    pool: &PgPool,
+    variant: RawMaterial,
+) -> anyhow::Result<QueryResults> {
+    let mut conn = pool.acquire().await.unwrap();
+
+    let net_req = variant.get_net_requirements(&mut conn).await?;
+    let suppliers = Supplier::get_by_item_kind(variant, &mut conn).await?;
+
+    let mut shipment_map = HashMap::new();
+    for day in net_req.keys() {
+        let shipments =
+            Shipment::get_under_allocated(*day, variant, &mut conn).await?;
+        if !shipments.is_empty() {
+            shipment_map.insert(*day, shipments);
+        }
+    }
+
+    let query_results = QueryResults {
+        current_date: Scheduler::get_date(),
+        shipments: shipment_map,
+        suppliers,
+        net_req,
+        material_kind: variant,
+    };
+
+    Ok(query_results)
+}
+
 // TODO: Take warehouse capacity into account
+// Test if underallocated shipments are being processed correctly
 pub async fn resolve_material_needs(
     variant: RawMaterial,
     pool: PgPool,
@@ -18,6 +56,8 @@ pub async fn resolve_material_needs(
     // 1. Get net requirements for the variant by day,
     //    Get under alocated incomming shipments
     //    Get available suppliers
+    //TODO: resolve net requirements for one day at a time, starting from the
+    //earliest day. This will allow for better allocation of shipments
     let qr = query_needed_data(&pool, variant).await?;
     if qr.net_req.is_empty() {
         tracing::info!("No {:#?} needs at the moment", variant);
@@ -216,41 +256,4 @@ fn process_under_alocated_shipments(
         // remove shipments to which nothing was allocated
         under_allocated.retain(|s| s.added.is_some());
     }
-}
-
-struct QueryResults {
-    pub current_date: u32,
-    pub shipments: HashMap<i32, Vec<UnderAllocatedShipment>>,
-    pub suppliers: Vec<Supplier>,
-    pub net_req: HashMap<i32, i32>,
-    pub material_kind: RawMaterial,
-}
-
-async fn query_needed_data(
-    pool: &PgPool,
-    variant: RawMaterial,
-) -> anyhow::Result<QueryResults> {
-    let mut conn = pool.acquire().await.unwrap();
-
-    let net_req = variant.get_net_requirements(&mut conn).await?;
-    let suppliers = Supplier::get_by_item_kind(variant, &mut conn).await?;
-
-    let mut shipment_map = HashMap::new();
-    for day in net_req.keys() {
-        let shipments =
-            Shipment::get_under_allocated(*day, variant, &mut conn).await?;
-        if !shipments.is_empty() {
-            shipment_map.insert(*day, shipments);
-        }
-    }
-
-    let query_results = QueryResults {
-        current_date: Scheduler::get_date(),
-        shipments: shipment_map,
-        suppliers,
-        net_req,
-        material_kind: variant,
-    };
-
-    Ok(query_results)
 }
