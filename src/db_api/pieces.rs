@@ -74,7 +74,7 @@ impl RawMaterial {
     pub async fn get_net_requirements(
         &self,
         con: &mut PgConnection,
-    ) -> sqlx::Result<HashMap<i32, i32>> {
+    ) -> sqlx::Result<BTreeMap<i32, i32>> {
         Ok(sqlx::query!(
             r#"
             SELECT COUNT(items.id) as quantity, transformations.date as date
@@ -93,7 +93,7 @@ impl RawMaterial {
         .fetch_all(con)
         .await?
         .into_iter()
-        .fold(HashMap::new(), |mut map, row| {
+        .fold(BTreeMap::new(), |mut map, row| {
             map.insert(
                 row.date.expect("selecting only non null"),
                 row.quantity.expect("selecting only non null") as i32,
