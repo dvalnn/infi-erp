@@ -9,31 +9,50 @@ CREATE TABLE IF NOT EXISTS shipments (
 
 CREATE FUNCTION shipment_arrived() RETURNS TRIGGER AS $$
 DECLARE item_price money;
+DECLARE item_ids uuid[];
+DECLARE item_id uuid;
+DECLARE new_item_id uuid;
+DECLARE p_kind char(2);
+DECLARE n_missing_items int;
   BEGIN
-
-    SELECT unit_price INTO item_price
+    SELECT unit_price, CAST(raw_material_kind AS char(2))
+      INTO item_price, p_kind
     FROM suppliers
     JOIN shipments AS sh ON sh.supplier_id = suppliers.id
     WHERE sh.id = NEW.id;
 
-    UPDATE items
-    SET status = 'in_stock',
+    SELECT ARRAY_AGG(items.id) INTO item_ids
+    FROM items
+    JOIN raw_material_shipments AS rs
+        ON rs.raw_material_id = items.id
+    JOIN shipments AS s
+        ON rs.shipment_id = s.id
+    WHERE s.id = NEW.id;
+
+    FOREACH item_id IN ARRAY item_ids
+    LOOP
+      RAISE NOTICE 'Item % arrived', item_id;
+      UPDATE items
+      SET status = 'in_stock',
         warehouse = 'W1',
         acc_cost = item_price
-    WHERE id IN
-    (
-        SELECT items.id
-        FROM items
-        JOIN raw_material_shipments AS rs
-            ON rs.raw_material_id = items.id
-        JOIN shipments AS s
-            ON rs.shipment_id = s.id
-        WHERE s.id = NEW.id
-    );
+      WHERE id = item_id;
+    END LOOP;
 
-    RAISE NOTICE 'Shipment % arrived', NEW.id;
+    SELECT NEW.quantity - COUNT(item_ids) INTO n_missing_items;
+    IF n_missing_items > 0 THEN
+      FOR i IN 1..n_missing_items
+      LOOP
+        INSERT INTO items (piece_kind, status, warehouse, acc_cost)
+        VALUES (CAST(p_kind AS piece_kind), 'in_stock', 'W1', item_price)
+        RETURNING id INTO new_item_id;
+      END LOOP;
+
+      RAISE NOTICE '% free items added of type %', n_missing_items, p_kind;
+    END IF;
+
     RETURN NEW;
-    END;
+  END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER shipment_arrived_trigger
