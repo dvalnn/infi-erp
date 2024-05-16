@@ -39,8 +39,10 @@ DECLARE n_missing_items int;
       WHERE id = item_id;
     END LOOP;
 
-    SELECT NEW.quantity - COUNT(item_ids) INTO n_missing_items;
+
+    SELECT NEW.quantity - array_length(item_ids, 1) INTO n_missing_items;
     IF n_missing_items > 0 THEN
+      RAISE NOTICE 'Missing items: %', n_missing_items;
       FOR i IN 1..n_missing_items
       LOOP
         INSERT INTO items (piece_kind, status, warehouse, acc_cost)
