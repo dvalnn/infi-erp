@@ -60,7 +60,10 @@ impl Item {
         production_line: impl ToString,
     ) -> anyhow::Result<Self> {
         if self.status != ItemStatus::Pending {
-            anyhow::bail!(format!("Item is {}, cannot produce", self.status));
+            anyhow::bail!(format!(
+                "Item {} is {}, cannot produce",
+                self.id, self.status
+            ));
         }
 
         self.status = ItemStatus::InTransit;
@@ -74,7 +77,10 @@ impl Item {
         production_line: impl ToString,
     ) -> anyhow::Result<Self> {
         if self.status != ItemStatus::InTransit {
-            anyhow::bail!(format!("Item is {}, cannot consume", self.status));
+            anyhow::bail!(format!(
+                "Item {} is {}, cannot consume",
+                self.id, self.status
+            ));
         }
 
         self.status = ItemStatus::Consumed;
@@ -89,8 +95,8 @@ impl Item {
     ) -> anyhow::Result<Self> {
         if self.status != ItemStatus::InTransit {
             anyhow::bail!(format!(
-                "Item is {}, cannot enter warehouse",
-                self.status
+                "Item {} is {}, cannot enter warehouse",
+                self.id, self.status
             ));
         }
 
@@ -105,13 +111,10 @@ impl Item {
         production_line: impl ToString,
     ) -> anyhow::Result<Self> {
         if self.status != ItemStatus::InStock {
-            //TODO: remove this log and uncomment the bail
-            // after raw material requests are implemented
-            tracing::warn!("Allowing {} item to leave warehouse", self.status);
-            // anyhow::bail!(format!(
-            //     "Item is {}, cannot exit warehouse",
-            //     self.status
-            // ));
+            anyhow::bail!(format!(
+                "Item {} is {}, cannot exit warehouse",
+                self.id, self.status
+            ));
         }
 
         self.status = ItemStatus::InTransit;
