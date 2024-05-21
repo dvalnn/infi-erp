@@ -27,6 +27,10 @@ RETURNS TRIGGER AS $$
       RETURN NEW; -- Insert as usual, no need to allocate stock
     END IF;
 
+    IF NEW.piece_kind NOT IN ( SELECT code FROM pieces WHERE category = 'raw') THEN
+      RETURN NEW; -- Insert as usual, we are only looking for raw materials
+    END IF;
+
     SELECT * INTO free_stock FROM items As i
     WHERE i.piece_kind = NEW.piece_kind
       AND i.status = 'in_stock'
