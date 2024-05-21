@@ -18,6 +18,47 @@ CREATE TABLE IF NOT EXISTS items (
   CHECK (( status = 'delivered' AND order_id IS NOT NULL) OR (status <> 'delivered'))
 );
 
+
+CREATE FUNCTION upsert_item()
+RETURNS TRIGGER AS $$
+  DECLARE free_stock RECORD;
+  BEGIN
+    IF NEW.order_id IS NULL THEN
+      RETURN NEW; -- Insert as usual, no need to allocate stock
+    END IF;
+
+    SELECT * INTO free_stock FROM items As i
+    WHERE i.piece_kind = NEW.piece_kind
+      AND i.status = 'in_stock'
+      AND i.order_id IS NULL
+    LIMIT 1;
+
+    IF NOT FOUND THEN
+      RETURN NEW; -- Insert as usual
+    END IF;
+
+    UPDATE items
+    SET id = new.id, -- HACK: this is a workaround to not break the application code
+    order_id = new.order_id
+    WHERE id = free_stock.id;
+
+    UPDATE raw_material_shipments
+    SET raw_material_id = new.id -- HACK: since the id was updated we need to update the reference
+    WHERE raw_material_id = free_stock.id;
+
+    RAISE NOTICE 'Item % alocated from existing stock to order %', free_stock.id, new.order_id;
+
+    RETURN NULL; -- Do not insert, we updated an existing item
+  END;
+$$
+LANGUAGE plpgsql;
+
+CREATE TRIGGER upsert_item
+BEFORE INSERT ON items
+FOR EACH ROW
+EXECUTE FUNCTION upsert_item();
+
+
 CREATE FUNCTION check_if_order_is_completed()
 RETURNS TRIGGER AS $$
   DECLARE n_ready int;
@@ -49,6 +90,7 @@ CREATE TRIGGER check_if_order_is_completed
 AFTER UPDATE OF status ON items
 FOR EACH ROW
 EXECUTE FUNCTION check_if_order_is_completed();
+
 
 CREATE FUNCTION deliver_items()
 RETURNS TRIGGER AS $$
