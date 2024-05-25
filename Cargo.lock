@@ -988,7 +988,6 @@ dependencies = [
  "config",
  "enum-iterator",
  "nom",
- "once_cell",
  "rstest",
  "serde",
  "sqlx",

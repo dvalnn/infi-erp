@@ -5,9 +5,7 @@ use sqlx::{
     PgConnection,
 };
 
-use crate::scheduler::{self, Scheduler};
-
-use super::{pieces::FinalPiece, ItemStatus, PieceKind};
+use super::{pieces::FinalPiece, PieceKind};
 
 #[derive(Debug, Clone, Copy, PartialEq, sqlx::Type)]
 #[sqlx(type_name = "order_status", rename_all = "lowercase")]
@@ -45,8 +43,8 @@ pub struct Order {
     late_penalty: PgMoney,
 
     status: OrderStatus,
-    placement_day: i32,
-    delivery_day: Option<i32>,
+    _placement_day: i32,
+    _delivery_day: Option<i32>,
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -76,8 +74,8 @@ impl Order {
             early_penalty: PgMoney(early_penalty),
             late_penalty: PgMoney(late_penalty),
             status: OrderStatus::Pending,
-            placement_day: 0,
-            delivery_day: None,
+            _placement_day: 0,
+            _delivery_day: None,
         }
     }
 
@@ -85,7 +83,7 @@ impl Order {
         order: &Order,
         con: &mut PgConnection,
     ) -> sqlx::Result<PgQueryResult> {
-        let placement_day = Scheduler::get_date();
+        let placement_day = super::get_date(con).await?;
 
         query!(
             r#"INSERT INTO orders (
@@ -127,20 +125,6 @@ impl Order {
             .bind(id)
             .fetch_one(con)
             .await
-    }
-
-    pub async fn get_id_by_due_date(
-        day: i32,
-        con: &mut PgConnection,
-    ) -> sqlx::Result<Vec<Uuid>> {
-        Ok(
-            sqlx::query!(r#"SELECT id FROM orders WHERE due_date = $1"#, day)
-                .fetch_all(con)
-                .await?
-                .iter()
-                .map(|row| row.id)
-                .collect::<Vec<Uuid>>(),
-        )
     }
 
     pub async fn get_by_item_id(

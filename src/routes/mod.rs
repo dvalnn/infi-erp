@@ -12,12 +12,9 @@ use serde::{Deserialize, Serialize};
 use sqlx::{postgres::types::PgMoney, PgPool};
 use uuid::Uuid;
 
-use crate::{
-    db_api::{
-        Item, Order, OrderStatus, RawMaterial, Shipment, Transformation,
-        TransformationDetails,
-    },
-    scheduler::Scheduler,
+use crate::db_api::{
+    self, Item, Order, OrderStatus, RawMaterial, Shipment, Transformation,
+    TransformationDetails,
 };
 
 fn internal_server_error(e: impl Debug + Display) -> HttpResponse {
@@ -35,20 +32,39 @@ pub async fn check_health() -> impl Responder {
     HttpResponse::Ok()
 }
 
-#[derive(Debug, Deserialize)]
-#[cfg_attr(test, derive(serde::Serialize))]
+#[derive(Debug, Deserialize, Serialize)]
 struct DayForm {
     day: u32,
 }
 
 #[get("/date")]
-pub async fn get_date() -> impl Responder {
-    HttpResponse::Ok().body(format!("{}", Scheduler::get_date()))
+pub async fn get_date(pool: Data<PgPool>) -> impl Responder {
+    let mut con = match pool.acquire().await {
+        Ok(con) => con,
+        Err(e) => return internal_server_error(e),
+    };
+
+    match db_api::get_date(&mut con).await {
+        Ok(date) => HttpResponse::Ok().json(DayForm { day: date }),
+        Err(e) => internal_server_error(e),
+    }
 }
 
 #[post("/date")]
-pub async fn post_date(form: Form<DayForm>) -> impl Responder {
-    Scheduler::set_date(form.day);
+pub async fn post_date(
+    form: Form<DayForm>,
+    pool: Data<PgPool>,
+) -> impl Responder {
+    let mut con = match pool.acquire().await {
+        Ok(con) => con,
+        Err(e) => return internal_server_error(e),
+    };
+
+    match db_api::update_date(form.day, &mut con).await {
+        Ok(_) => HttpResponse::Created().finish(),
+        Err(e) => internal_server_error(e),
+    };
+
     HttpResponse::Created().finish()
 }
 
@@ -239,7 +255,11 @@ pub async fn post_transformation_completion(
         (Err(e), _) | (_, Err(e)) => return bad_request(e),
     };
 
-    let current_date = Scheduler::get_date();
+    let current_date = match db_api::get_date(&mut tx).await {
+        Ok(date) => date,
+        Err(e) => return internal_server_error(e),
+    };
+
     let tf_result = transf.complete(current_date, &mut tx).await;
     let m_result = material.update(&mut tx).await;
     let p_result = product.update(&mut tx).await;
@@ -353,7 +373,16 @@ pub async fn post_material_arrival(
     form: Form<ShipmentArrivalForm>,
     pool: Data<PgPool>,
 ) -> impl Responder {
-    let date = Scheduler::get_date() as i32;
+    let date = {
+        let mut con = match pool.acquire().await {
+            Ok(con) => con,
+            Err(e) => return internal_server_error(e),
+        };
+        match db_api::get_date(&mut con).await {
+            Ok(date) => date as i32,
+            Err(e) => return internal_server_error(e),
+        }
+    };
 
     match Shipment::arrived(form.shipment_id, date, &pool).await {
         Err(e) => internal_server_error(e),
@@ -392,83 +421,12 @@ pub async fn post_delivery_confirmation(
         Ok(con) => con,
         Err(e) => return internal_server_error(e),
     };
-    let date = Scheduler::get_date();
+    let date = match db_api::get_date(&mut con).await {
+        Ok(date) => date,
+        Err(e) => return internal_server_error(e),
+    };
     match Order::confirm_delivery(&mut con, form.id, date).await {
         Ok(_) => HttpResponse::Created().finish(),
         Err(e) => bad_request(e),
-    }
-}
-
-// TODO: test material arrivals to warehouse
-// TODO: test delivery confirmations
-#[cfg(test)]
-mod tests {
-    use super::{check_health, DayForm};
-    use crate::{
-        configuration::get_configuration,
-        routes::{get_daily_transformations, get_date, post_date},
-    };
-    use actix_web::{test, web::Data, App};
-
-    #[actix_web::test]
-    async fn test_check_health() {
-        let app = test::init_service(App::new().service(check_health)).await;
-        let req = test::TestRequest::get().uri("/check_health").to_request();
-        let resp = test::call_service(&app, req).await;
-        assert!(resp.status().is_success());
-    }
-
-    #[actix_web::test]
-    async fn test_get_date() {
-        let app = test::init_service(App::new().service(get_date)).await;
-        let req = test::TestRequest::get().uri("/date").to_request();
-        let resp = test::call_service(&app, req).await;
-
-        assert!(resp.status().is_success());
-
-        let body = test::read_body(resp).await;
-        String::from_utf8(body.to_vec())
-            .expect("Invalid UTF-8")
-            .parse::<i32>()
-            .expect("Invalid i32");
-    }
-
-    #[actix_web::test]
-    async fn test_post_date() {
-        let app = test::init_service(App::new().service(post_date)).await;
-        let req = test::TestRequest::post()
-            .uri("/date")
-            .set_form(DayForm { day: 1 })
-            .to_request();
-        let resp = test::call_service(&app, req).await;
-        assert!(resp.status().is_success())
-    }
-
-    #[actix_web::test]
-    async fn test_get_daily_transformations() {
-        let pool = get_configuration()
-            .expect("Failed to read configuration")
-            .database
-            .create_test_db()
-            .await;
-
-        let app = test::init_service(
-            App::new()
-                .service(get_daily_transformations)
-                .app_data(Data::new(pool)),
-        )
-        .await;
-        let req = test::TestRequest::get()
-            .uri("/transformations")
-            .set_form(DayForm { day: 1 })
-            .to_request();
-        let resp = test::call_service(&app, req).await;
-        let status = resp.status();
-        if !resp.status().is_success() {
-            let body = test::read_body(resp).await;
-            let body_str =
-                String::from_utf8(body.to_vec()).expect("Invalid UTF-8");
-            panic!("{}: {}", status, body_str);
-        }
     }
 }

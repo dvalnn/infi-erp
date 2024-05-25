@@ -1,9 +1,6 @@
 mod handlers;
 mod resource_planning;
 
-use std::sync::RwLock;
-
-use once_cell::sync::Lazy;
 use sqlx::{postgres::PgListener, PgPool};
 
 use crate::{
@@ -12,7 +9,6 @@ use crate::{
 };
 
 pub const TIME_IN_DAY: i64 = 60; // in the simulation, 1 day is 60 seconds
-static CURRENT_DATE: Lazy<RwLock<u32>> = Lazy::new(|| RwLock::new(1));
 
 pub struct Scheduler {
     pool: PgPool,
@@ -22,15 +18,6 @@ pub struct Scheduler {
 impl Scheduler {
     pub fn new(pool: PgPool, listener: PgListener) -> Self {
         Self { pool, listener }
-    }
-
-    pub fn get_date() -> u32 {
-        *CURRENT_DATE.read().expect("lock was poisoned")
-    }
-
-    pub fn set_date(new_date: u32) {
-        *CURRENT_DATE.write().expect("lock was poisoned") = new_date;
-        tracing::info!("Date set to {}", new_date);
     }
 
     async fn process_new_order(
@@ -58,7 +45,11 @@ impl Scheduler {
         tracing::debug!("Generated recipe: {:?}", full_recipe);
         tracing::debug!("Generated order items: {:?}", order_items);
 
-        let current_date = Scheduler::get_date();
+        let current_date = {
+            let mut con = pool.acquire().await?;
+            db_api::get_date(&mut con).await?
+        };
+
         let blueprints = order_items
             .iter()
             .filter_map(|item| {

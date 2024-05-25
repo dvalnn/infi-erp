@@ -1,12 +1,10 @@
-use std::collections::HashMap;
-
 use sqlx::postgres::types::PgMoney;
 use sqlx::PgConnection;
-use uuid::Uuid;
 
 use super::{RawMaterial, Shipment};
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct Supplier {
     id: i64,
     raw_material_kind: RawMaterial,
@@ -31,28 +29,6 @@ impl Supplier {
         )
     }
 
-    pub async fn get_by_id(
-        id: i64,
-        con: &mut PgConnection,
-    ) -> sqlx::Result<Supplier> {
-        sqlx::query_as!(
-            Supplier,
-            r#"
-            SELECT
-                id,
-                raw_material_kind as "raw_material_kind: RawMaterial",
-                min_order_quantity,
-                unit_price,
-                delivery_time
-            FROM suppliers
-            WHERE id = $1
-            "#,
-            id
-        )
-        .fetch_one(con)
-        .await
-    }
-
     pub async fn get_by_item_kind(
         kind: RawMaterial,
         con: &mut PgConnection,
@@ -73,45 +49,5 @@ impl Supplier {
         )
         .fetch_all(con)
         .await
-    }
-
-    pub async fn get_compatible(
-        kind: RawMaterial,
-        time: i32,
-        con: &mut PgConnection,
-    ) -> sqlx::Result<Vec<Supplier>> {
-        sqlx::query_as!(
-            Supplier,
-            r#"
-            SELECT
-                id,
-                raw_material_kind as "raw_material_kind: RawMaterial",
-                min_order_quantity,
-                unit_price,
-                delivery_time
-            FROM suppliers
-            WHERE raw_material_kind = $1 AND delivery_time <= $2
-            "#,
-            kind as RawMaterial,
-            time
-        )
-        .fetch_all(con)
-        .await
-    }
-
-    pub fn delivery_time(&self) -> i32 {
-        self.delivery_time
-    }
-
-    pub fn unit_price(&self) -> PgMoney {
-        self.unit_price
-    }
-
-    pub fn min_order_quantity(&self) -> i32 {
-        self.min_order_quantity
-    }
-
-    pub fn id(&self) -> i64 {
-        self.id
     }
 }

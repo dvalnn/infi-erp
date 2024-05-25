@@ -1,7 +1,4 @@
-use std::{
-    collections::{BTreeMap, HashMap},
-    num::NonZeroU64,
-};
+use std::collections::BTreeMap;
 
 use enum_iterator::Sequence;
 use serde::{Deserialize, Serialize};
@@ -9,9 +6,7 @@ use sqlx::PgConnection;
 use subenum::subenum;
 use uuid::Uuid;
 
-use crate::db_api::Supplier;
-
-use super::{Item, ItemStatus};
+use super::ItemStatus;
 
 #[subenum(FinalPiece, InterPiece, RawMaterial(derive(Sequence)))]
 #[derive(
@@ -100,25 +95,6 @@ impl RawMaterial {
             );
             map
         }))
-    }
-
-    pub async fn get_stock(&self, con: &mut PgConnection) -> sqlx::Result<i64> {
-        sqlx::query!(
-            r#"
-            SELECT
-                COUNT(*) as quantity
-            FROM items
-            WHERE
-                items.status = $1 AND
-                items.piece_kind = $2 AND
-                items.order_id IS NULL
-            "#,
-            ItemStatus::InStock as ItemStatus,
-            *self as RawMaterial,
-        )
-        .fetch_one(con)
-        .await
-        .map(|row| row.quantity.expect("Count is some"))
     }
 
     pub async fn get_pending_purchase(

@@ -1,5 +1,3 @@
-#![allow(dead_code, unused_imports)]
-
 // Modules
 mod clients;
 mod items;
@@ -20,6 +18,30 @@ pub use shipments::*;
 pub use suppliers::*;
 pub use transformations::*;
 
+use sqlx::PgConnection;
+
+pub async fn get_date(con: &mut PgConnection) -> sqlx::Result<u32> {
+    Ok(
+        sqlx::query_scalar!("SELECT simulation_date FROM epoch_table LIMIT 1")
+            .fetch_one(con)
+            .await? as u32,
+    )
+}
+
+pub async fn update_date(
+    new_date: u32,
+    con: &mut PgConnection,
+) -> sqlx::Result<()> {
+    sqlx::query!(
+        "UPDATE epoch_table SET simulation_date = $1",
+        new_date as i32
+    )
+    .execute(con)
+    .await?;
+
+    Ok(())
+}
+
 pub enum NotificationChannel {
     NewOrder,
     MaterialsNeeded,
@@ -28,8 +50,6 @@ pub enum NotificationChannel {
 impl NotificationChannel {
     const NEW_ORDER_CHANNEL: &'static str = "new_order";
     const MATERIALS_NEEDED_CHANNEL: &'static str = "materials_needed";
-    const ALL_STR: [&'static str; 2] =
-        [Self::NEW_ORDER_CHANNEL, Self::MATERIALS_NEEDED_CHANNEL];
 
     pub async fn notify(
         channel: NotificationChannel,

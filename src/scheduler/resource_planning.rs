@@ -4,8 +4,6 @@ use crate::db_api::{
     MaterialShipment, RawMaterial, Shipment, Supplier, UnderAllocatedShipment,
 };
 
-use super::Scheduler;
-
 struct DayVariantNeedsData {
     pub due_date: i32,
     pub net_req: i32,
@@ -19,7 +17,12 @@ async fn resolve_day_needs(
     mut needs: DayVariantNeedsData,
 ) -> anyhow::Result<()> {
     // 2. Process the data to create purchase orders
-    let pr = process_purchases(&mut needs);
+    let current_date = {
+        let mut conn = pool.acquire().await?;
+        crate::db_api::get_date(&mut conn).await?
+    };
+
+    let pr = process_purchases(&mut needs, current_date);
 
     tracing::debug!("Altered shipments: {:#?}", pr.altered_shipments);
     tracing::debug!("New Purchase order: {:#?}", pr.purchase_order);
@@ -164,6 +167,7 @@ struct AlteredShipment {
 
 fn process_purchases(
     needs: &mut DayVariantNeedsData,
+    current_date: u32,
 ) -> PurchaseProcessingResults {
     // 1. Remove from net requirements the stock already ordered in the past
     process_under_alocated_shipments(
@@ -190,7 +194,6 @@ fn process_purchases(
 
     // 3. Create a purchase order for each supplier for each day
     // Fill low demand days with extra to reach the minimum order quantity.
-    let current_date = Scheduler::get_date();
     let available_time = needs.due_date - current_date as i32;
 
     if available_time < 0 {

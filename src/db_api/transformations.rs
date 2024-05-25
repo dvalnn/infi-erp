@@ -119,14 +119,6 @@ impl Transformation {
     pub fn product_id(&self) -> Uuid {
         self.product_id
     }
-
-    pub fn date(&self) -> Option<i32> {
-        self.date
-    }
-
-    pub fn id(&self) -> Option<i64> {
-        self.id
-    }
 }
 
 #[derive(Debug, Serialize)]

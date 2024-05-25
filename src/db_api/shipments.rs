@@ -4,6 +4,7 @@ use uuid::Uuid;
 use super::RawMaterial;
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct Shipment {
     id: Option<i64>,
     supplier_id: i64,

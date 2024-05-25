@@ -1,46 +1,41 @@
-use serde::{Deserialize, Serialize};
-use sqlx::{
-    postgres::types::PgMoney, query, query_as, types::uuid::Uuid, Executor,
-    PgConnection, PgPool, Postgres,
-};
+use sqlx::{types::uuid::Uuid, PgConnection, PgPool};
 
 use crate::db_api::NotificationChannel as Ntc;
 
 use super::{orders::Order, pieces::FinalPiece};
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct Client {
     id: Uuid,
     name: String,
 }
 
 impl Client {
-    fn new(name: String) -> Self {
-        Self {
-            id: Uuid::new_v4(),
-            name,
-        }
-    }
-
     pub async fn query_by_name(
         name: &str,
         con: &mut PgConnection,
     ) -> sqlx::Result<Option<Self>> {
-        query_as!(Client, r#"SELECT * FROM clients WHERE name = $1"#, name)
-            .fetch_optional(con)
-            .await
+        sqlx::query_as!(
+            Client,
+            r#"SELECT * FROM clients WHERE name = $1"#,
+            name
+        )
+        .fetch_optional(con)
+        .await
     }
 
     pub async fn insert_to_db(
         name: &str,
         con: &mut PgConnection,
     ) -> sqlx::Result<Uuid> {
-        Ok(
-            query!("INSERT INTO clients (name) VALUES ($1) RETURNING id", name)
-                .fetch_one(con)
-                .await?
-                .id,
+        Ok(sqlx::query!(
+            "INSERT INTO clients (name) VALUES ($1) RETURNING id",
+            name
         )
+        .fetch_one(con)
+        .await?
+        .id)
     }
 }
 
@@ -56,6 +51,7 @@ pub struct ClientOrder {
 }
 
 impl ClientOrder {
+    #[allow(dead_code)]
     pub fn new(
         client_name: String,
         order_number: i32,
