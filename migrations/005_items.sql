@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS items (
 CREATE FUNCTION check_location()
 RETURNS TRIGGER AS $$
   BEGIN
-    IF NEW.location NOT IN (SELECT code FROM locations UNION SELECT code FROM warehouses)
+    IF NEW.location NOT IN (SELECT code FROM production_lines UNION SELECT code FROM warehouses)
     THEN
       RAISE EXCEPTION 'Location % does not exist', NEW.location;
     END IF;

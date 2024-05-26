@@ -34,7 +34,7 @@ DECLARE n_missing_items int;
       RAISE NOTICE 'Item % arrived', item_id;
       UPDATE items
       SET status = 'in_stock',
-        warehouse = 'W1',
+        location = 'W1',
         acc_cost = item_price
       WHERE id = item_id;
     END LOOP;
@@ -45,7 +45,7 @@ DECLARE n_missing_items int;
       RAISE NOTICE 'Missing items: %', n_missing_items;
       FOR i IN 1..n_missing_items
       LOOP
-        INSERT INTO items (piece_kind, status, warehouse, acc_cost)
+        INSERT INTO items (piece_kind, status, location, acc_cost)
         VALUES (CAST(p_kind AS piece_kind), 'in_stock', 'W1', item_price)
         RETURNING id INTO new_item_id;
       END LOOP;

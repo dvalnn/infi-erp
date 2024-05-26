@@ -54,15 +54,22 @@ impl Transformation {
         completion_date: u32,
         line: &str,
         machine: &str,
+        time_taken: i32,
         con: &mut PgConnection,
     ) -> sqlx::Result<()> {
         sqlx::query!(
             r#"UPDATE transformations
-            SET status = 'completed', date = $1, line = $2, machine = $3
-            WHERE id = $4"#,
+            SET
+                status = 'completed',
+                date = $1,
+                line = $2,
+                machine = $3,
+                time_taken = $4
+            WHERE id = $5"#,
             completion_date as i32,
             line,
             machine,
+            time_taken,
             self.id
         )
         .execute(con)

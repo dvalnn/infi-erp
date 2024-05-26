@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS transformations(
 
   -- Metadata for vistualization purposes
   date int,
-  line char(2) REFERENCES production_lines(code),
-  machine char(2) REFERENCES machines(code)
+  time_taken int,
+  machine char(2) REFERENCES machines(code),
+  line char(2) REFERENCES production_lines(code)
 );

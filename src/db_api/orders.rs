@@ -32,6 +32,7 @@ impl std::fmt::Display for OrderStatus {
 }
 
 #[derive(Debug, sqlx::FromRow)]
+#[allow(dead_code)]
 pub struct Order {
     id: Uuid,
     client_id: Uuid,
@@ -43,8 +44,8 @@ pub struct Order {
     late_penalty: PgMoney,
 
     status: OrderStatus,
-    _placement_day: i32,
-    _delivery_day: Option<i32>,
+    placement_day: i32,
+    delivery_day: Option<i32>,
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -74,8 +75,8 @@ impl Order {
             early_penalty: PgMoney(early_penalty),
             late_penalty: PgMoney(late_penalty),
             status: OrderStatus::Pending,
-            _placement_day: 0,
-            _delivery_day: None,
+            placement_day: 0,
+            delivery_day: None,
         }
     }
 

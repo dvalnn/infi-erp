@@ -214,7 +214,7 @@ struct TransfCompletionFrom {
     product_id: Uuid,
     line_id: String,
     machine_id: String,
-    time_taken: i64,
+    time_taken: i32,
 }
 
 #[post("/transformations")]
@@ -248,7 +248,7 @@ pub async fn post_transformation_completion(
         (Err(e), _) | (_, Err(e)) => return internal_server_error(e),
     };
 
-    let new_cost = material.get_cost() + PgMoney(form.time_taken * 100);
+    let new_cost = material.get_cost() + PgMoney(form.time_taken as i64 * 100);
     let p_action_result = product.produce(new_cost, &form.line_id);
     let m_action_result = material.consume();
     let (product, material) = match (p_action_result, m_action_result) {
@@ -262,7 +262,13 @@ pub async fn post_transformation_completion(
     };
 
     let tf_result = transf
-        .complete(current_date, &form.line_id, &form.machine_id, &mut tx)
+        .complete(
+            current_date,
+            &form.line_id,
+            &form.machine_id,
+            form.time_taken,
+            &mut tx,
+        )
         .await;
     let m_result = material.update(&mut tx).await;
     let p_result = product.update(&mut tx).await;
