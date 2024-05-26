@@ -10,12 +10,28 @@ CREATE TABLE IF NOT EXISTS items (
 
   piece_kind piece_kind NOT NULL REFERENCES pieces(code),
   order_id uuid REFERENCES orders(id),
-  warehouse char(2) REFERENCES warehouses(code),
+  location char(2),
   status item_status NOT NULL DEFAULT 'pending',
   acc_cost money NOT NULL DEFAULT 0,
 
   CHECK (( status = 'delivered' AND order_id IS NOT NULL) OR (status <> 'delivered'))
 );
+
+CREATE FUNCTION check_location()
+RETURNS TRIGGER AS $$
+  BEGIN
+    IF NEW.location NOT IN (SELECT code FROM locations UNION SELECT code FROM warehouses)
+    THEN
+      RAISE EXCEPTION 'Location % does not exist', NEW.location;
+    END IF;
+    RETURN NEW;
+  END
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER check_location
+BEFORE INSERT OR UPDATE ON items
+FOR EACH ROW
+EXECUTE FUNCTION check_location();
 
 
 CREATE FUNCTION upsert_item()

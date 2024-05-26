@@ -30,7 +30,7 @@ pub struct Item {
     id: Uuid,
     piece_kind: PieceKind,
     order_id: Option<Uuid>,
-    warehouse: Option<String>,
+    location: Option<String>,
     status: ItemStatus,
     acc_cost: PgMoney,
 }
@@ -41,7 +41,7 @@ impl Item {
             id: Uuid::new_v4(),
             piece_kind,
             order_id: None,
-            warehouse: None,
+            location: None,
             status: ItemStatus::Pending,
             acc_cost: PgMoney(0),
         }
@@ -52,7 +52,11 @@ impl Item {
         self
     }
 
-    pub fn produce(mut self, cost: PgMoney) -> anyhow::Result<Self> {
+    pub fn produce(
+        mut self,
+        cost: PgMoney,
+        line: impl ToString,
+    ) -> anyhow::Result<Self> {
         if self.status != ItemStatus::Pending {
             anyhow::bail!(format!(
                 "Item {} is {}, cannot produce",
@@ -61,6 +65,7 @@ impl Item {
         }
 
         self.status = ItemStatus::InTransit;
+        self.location = Some(line.to_string());
         self.acc_cost = cost;
         Ok(self)
     }
@@ -74,7 +79,7 @@ impl Item {
         }
 
         self.status = ItemStatus::Consumed;
-        self.warehouse = None;
+        self.location = None;
         Ok(self)
     }
 
@@ -90,11 +95,14 @@ impl Item {
         }
 
         self.status = ItemStatus::InStock;
-        self.warehouse = Some(warehouse.to_string());
+        self.location = Some(warehouse.to_string());
         Ok(self)
     }
 
-    pub fn exit_warehouse(mut self) -> anyhow::Result<Self> {
+    pub fn exit_warehouse(
+        mut self,
+        production_line: impl ToString,
+    ) -> anyhow::Result<Self> {
         if self.status != ItemStatus::InStock {
             anyhow::bail!(format!(
                 "Item {} is {}, cannot exit warehouse",
@@ -103,7 +111,7 @@ impl Item {
         }
 
         self.status = ItemStatus::InTransit;
-        self.warehouse = None;
+        self.location = Some(production_line.to_string());
         Ok(self)
     }
 
@@ -117,12 +125,12 @@ impl Item {
     ) -> sqlx::Result<PgQueryResult> {
         sqlx::query!(
             "INSERT INTO
-                items (id, piece_kind, order_id, warehouse, status, acc_cost)
+                items (id, piece_kind, order_id, location, status, acc_cost)
                 VALUES ($1, $2, $3, $4, $5, $6)",
             self.id,
             self.piece_kind as PieceKind,
             self.order_id,
-            self.warehouse,
+            self.location,
             self.status as ItemStatus,
             self.acc_cost
         )
@@ -140,7 +148,7 @@ impl Item {
                 id,
                 piece_kind as "piece_kind: PieceKind",
                 order_id,
-                warehouse,
+                location,
                 status as "status: ItemStatus",
                 acc_cost
             FROM items WHERE id = $1"#,
@@ -182,12 +190,12 @@ impl Item {
             r#"UPDATE items
             SET
                 order_id = $1,
-                warehouse = $2,
+                location = $2,
                 status = $3,
                 acc_cost = $4
             WHERE id = $5"#,
             self.order_id,
-            self.warehouse,
+            self.location,
             self.status as ItemStatus,
             self.acc_cost,
             self.id

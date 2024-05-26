@@ -248,9 +248,8 @@ pub async fn post_transformation_completion(
         (Err(e), _) | (_, Err(e)) => return internal_server_error(e),
     };
 
-    // form.line_id.clone()
     let new_cost = material.get_cost() + PgMoney(form.time_taken * 100);
-    let p_action_result = product.produce(new_cost);
+    let p_action_result = product.produce(new_cost, &form.line_id);
     let m_action_result = material.consume();
     let (product, material) = match (p_action_result, m_action_result) {
         (Ok(p), Ok(m)) => (p, m),
@@ -286,7 +285,7 @@ pub async fn post_transformation_completion(
 #[serde(rename_all = "lowercase")]
 enum WarehouseAction {
     Entry(String),
-    Exit,
+    Exit(String),
 }
 
 #[derive(Debug, Deserialize)]
@@ -316,7 +315,7 @@ pub async fn post_warehouse_action(
         WarehouseAction::Entry(warehouse_code) => {
             item.enter_warehouse(warehouse_code)
         }
-        WarehouseAction::Exit => item.exit_warehouse(),
+        WarehouseAction::Exit(line_code) => item.exit_warehouse(line_code),
     };
 
     let item = match item_action_result {
