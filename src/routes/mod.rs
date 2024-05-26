@@ -213,6 +213,7 @@ struct TransfCompletionFrom {
     material_id: Uuid,
     product_id: Uuid,
     line_id: String,
+    machine_id: String,
     time_taken: i64,
 }
 
@@ -247,9 +248,10 @@ pub async fn post_transformation_completion(
         (Err(e), _) | (_, Err(e)) => return internal_server_error(e),
     };
 
+    // form.line_id.clone()
     let new_cost = material.get_cost() + PgMoney(form.time_taken * 100);
-    let p_action_result = product.produce(new_cost, form.line_id.clone());
-    let m_action_result = material.consume(form.line_id.clone());
+    let p_action_result = product.produce(new_cost);
+    let m_action_result = material.consume();
     let (product, material) = match (p_action_result, m_action_result) {
         (Ok(p), Ok(m)) => (p, m),
         (Err(e), _) | (_, Err(e)) => return bad_request(e),
@@ -260,7 +262,9 @@ pub async fn post_transformation_completion(
         Err(e) => return internal_server_error(e),
     };
 
-    let tf_result = transf.complete(current_date, &mut tx).await;
+    let tf_result = transf
+        .complete(current_date, &form.line_id, &form.machine_id, &mut tx)
+        .await;
     let m_result = material.update(&mut tx).await;
     let p_result = product.update(&mut tx).await;
     let tx_result = match (m_result, p_result, tf_result) {
@@ -282,7 +286,7 @@ pub async fn post_transformation_completion(
 #[serde(rename_all = "lowercase")]
 enum WarehouseAction {
     Entry(String),
-    Exit(String),
+    Exit,
 }
 
 #[derive(Debug, Deserialize)]
@@ -312,9 +316,7 @@ pub async fn post_warehouse_action(
         WarehouseAction::Entry(warehouse_code) => {
             item.enter_warehouse(warehouse_code)
         }
-        WarehouseAction::Exit(production_line_code) => {
-            item.exit_warehouse(production_line_code)
-        }
+        WarehouseAction::Exit => item.exit_warehouse(),
     };
 
     let item = match item_action_result {

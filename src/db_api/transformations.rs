@@ -39,7 +39,7 @@ impl Transformation {
                 self.material_id,
                 self.product_id,
                 self.recipe_id,
-                self.date
+                self.date,
             )
             .fetch_one(con)
             .await?
@@ -52,13 +52,17 @@ impl Transformation {
     pub async fn complete(
         &self,
         completion_date: u32,
+        line: &str,
+        machine: &str,
         con: &mut PgConnection,
     ) -> sqlx::Result<()> {
         sqlx::query!(
             r#"UPDATE transformations
-            SET status = 'completed', date = $1
-            WHERE id = $2"#,
+            SET status = 'completed', date = $1, line = $2, machine = $3
+            WHERE id = $4"#,
             completion_date as i32,
+            line,
+            machine,
             self.id
         )
         .execute(con)

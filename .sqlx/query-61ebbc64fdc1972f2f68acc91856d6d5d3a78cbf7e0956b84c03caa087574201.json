@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT\n                id,\n                piece_kind as \"piece_kind: PieceKind\",\n                order_id,\n                warehouse,\n                production_line,\n                status as \"status: ItemStatus\",\n                acc_cost\n            FROM items WHERE id = $1",
+  "query": "SELECT\n                id,\n                piece_kind as \"piece_kind: PieceKind\",\n                order_id,\n                warehouse,\n                status as \"status: ItemStatus\",\n                acc_cost\n            FROM items WHERE id = $1",
   "describe": {
     "columns": [
       {
@@ -42,11 +42,6 @@
       },
       {
         "ordinal": 4,
-        "name": "production_line",
-        "type_info": "Bpchar"
-      },
-      {
-        "ordinal": 5,
         "name": "status: ItemStatus",
         "type_info": {
           "Custom": {
@@ -64,7 +59,7 @@
         }
       },
       {
-        "ordinal": 6,
+        "ordinal": 5,
         "name": "acc_cost",
         "type_info": "Money"
       }
@@ -79,10 +74,9 @@
       false,
       true,
       true,
-      true,
       false,
       false
     ]
   },
-  "hash": "b4b786efab4ecdb6c23db4cd1178ad8685b602f60ffbe6a2c59fc1233f4462e6"
+  "hash": "61ebbc64fdc1972f2f68acc91856d6d5d3a78cbf7e0956b84c03caa087574201"
 }

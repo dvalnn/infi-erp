@@ -6,5 +6,9 @@ CREATE TABLE IF NOT EXISTS transformations(
   product_id uuid NOT NULL REFERENCES items(id),
   recipe_id bigint NOT NULL REFERENCES recipes(id),
   status transformation_status NOT NULL DEFAULT 'pending',
-  date int
+
+  -- Metadata for vistualization purposes
+  date int,
+  line char(2) REFERENCES production_lines(code),
+  machine char(2) REFERENCES machines(code)
 );

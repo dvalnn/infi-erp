@@ -22,7 +22,7 @@ use sqlx::PgConnection;
 
 pub async fn get_date(con: &mut PgConnection) -> sqlx::Result<u32> {
     Ok(
-        sqlx::query_scalar!("SELECT simulation_date FROM epoch_table LIMIT 1")
+        sqlx::query_scalar!("SELECT simulation_date FROM epoch_table")
             .fetch_one(con)
             .await? as u32,
     )

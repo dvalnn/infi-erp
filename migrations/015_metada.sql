@@ -5,3 +5,5 @@ simulation_date INT
   CHECK(simulation_date >= 0)
   PRIMARY KEY
 );
+
+INSERT INTO epoch_table(simulation_date) VALUES(1);

@@ -31,7 +31,6 @@ pub struct Item {
     piece_kind: PieceKind,
     order_id: Option<Uuid>,
     warehouse: Option<String>,
-    production_line: Option<String>,
     status: ItemStatus,
     acc_cost: PgMoney,
 }
@@ -43,7 +42,6 @@ impl Item {
             piece_kind,
             order_id: None,
             warehouse: None,
-            production_line: None,
             status: ItemStatus::Pending,
             acc_cost: PgMoney(0),
         }
@@ -54,11 +52,7 @@ impl Item {
         self
     }
 
-    pub fn produce(
-        mut self,
-        cost: PgMoney,
-        production_line: impl ToString,
-    ) -> anyhow::Result<Self> {
+    pub fn produce(mut self, cost: PgMoney) -> anyhow::Result<Self> {
         if self.status != ItemStatus::Pending {
             anyhow::bail!(format!(
                 "Item {} is {}, cannot produce",
@@ -67,15 +61,11 @@ impl Item {
         }
 
         self.status = ItemStatus::InTransit;
-        self.production_line = Some(production_line.to_string());
         self.acc_cost = cost;
         Ok(self)
     }
 
-    pub fn consume(
-        mut self,
-        production_line: impl ToString,
-    ) -> anyhow::Result<Self> {
+    pub fn consume(mut self) -> anyhow::Result<Self> {
         if self.status != ItemStatus::InTransit {
             anyhow::bail!(format!(
                 "Item {} is {}, cannot consume",
@@ -85,7 +75,6 @@ impl Item {
 
         self.status = ItemStatus::Consumed;
         self.warehouse = None;
-        self.production_line = Some(production_line.to_string());
         Ok(self)
     }
 
@@ -102,14 +91,10 @@ impl Item {
 
         self.status = ItemStatus::InStock;
         self.warehouse = Some(warehouse.to_string());
-        self.production_line = None;
         Ok(self)
     }
 
-    pub fn exit_warehouse(
-        mut self,
-        production_line: impl ToString,
-    ) -> anyhow::Result<Self> {
+    pub fn exit_warehouse(mut self) -> anyhow::Result<Self> {
         if self.status != ItemStatus::InStock {
             anyhow::bail!(format!(
                 "Item {} is {}, cannot exit warehouse",
@@ -119,7 +104,6 @@ impl Item {
 
         self.status = ItemStatus::InTransit;
         self.warehouse = None;
-        self.production_line = Some(production_line.to_string());
         Ok(self)
     }
 
@@ -133,13 +117,12 @@ impl Item {
     ) -> sqlx::Result<PgQueryResult> {
         sqlx::query!(
             "INSERT INTO
-                items (id, piece_kind, order_id, warehouse, production_line, status, acc_cost)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)",
+                items (id, piece_kind, order_id, warehouse, status, acc_cost)
+                VALUES ($1, $2, $3, $4, $5, $6)",
             self.id,
             self.piece_kind as PieceKind,
             self.order_id,
             self.warehouse,
-            self.production_line,
             self.status as ItemStatus,
             self.acc_cost
         )
@@ -158,7 +141,6 @@ impl Item {
                 piece_kind as "piece_kind: PieceKind",
                 order_id,
                 warehouse,
-                production_line,
                 status as "status: ItemStatus",
                 acc_cost
             FROM items WHERE id = $1"#,
@@ -201,13 +183,11 @@ impl Item {
             SET
                 order_id = $1,
                 warehouse = $2,
-                production_line = $3,
-                status = $4,
-                acc_cost = $5
-            WHERE id = $6"#,
+                status = $3,
+                acc_cost = $4
+            WHERE id = $5"#,
             self.order_id,
             self.warehouse,
-            self.production_line,
             self.status as ItemStatus,
             self.acc_cost,
             self.id

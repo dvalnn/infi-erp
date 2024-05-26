@@ -1,12 +1,11 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE items\n            SET\n                order_id = $1,\n                warehouse = $2,\n                production_line = $3,\n                status = $4,\n                acc_cost = $5\n            WHERE id = $6",
+  "query": "UPDATE items\n            SET\n                order_id = $1,\n                warehouse = $2,\n                status = $3,\n                acc_cost = $4\n            WHERE id = $5",
   "describe": {
     "columns": [],
     "parameters": {
       "Left": [
         "Uuid",
-        "Bpchar",
         "Bpchar",
         {
           "Custom": {
@@ -28,5 +27,5 @@
     },
     "nullable": []
   },
-  "hash": "070290a2c348195bf3a04582b93301dbe7cc4dfb980be968022048974e50894e"
+  "hash": "46451228d67da5e779aed034ed89a8e2095a57f381f31fd02cc9a887b7dfc676"
 }

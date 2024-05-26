@@ -11,7 +11,6 @@ CREATE TABLE IF NOT EXISTS items (
   piece_kind piece_kind NOT NULL REFERENCES pieces(code),
   order_id uuid REFERENCES orders(id),
   warehouse char(2) REFERENCES warehouses(code),
-  production_line char(2) REFERENCES production_lines(code),
   status item_status NOT NULL DEFAULT 'pending',
   acc_cost money NOT NULL DEFAULT 0,
 
