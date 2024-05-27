@@ -36,4 +36,5 @@ actix-web = "4.5"
 enum-iterator = "2.0.0"
 
 [dev-dependencies]
+serde_json = "1.0.117"
 rstest = "0.19.0"

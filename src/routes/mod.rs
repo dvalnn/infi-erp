@@ -321,7 +321,9 @@ pub async fn post_warehouse_action(
         WarehouseAction::Entry(warehouse_code) => {
             item.enter_warehouse(warehouse_code)
         }
-        WarehouseAction::Exit(line_code) => item.exit_warehouse(line_code),
+        WarehouseAction::Exit(production_line_code) => {
+            item.exit_warehouse(production_line_code)
+        }
     };
 
     let item = match item_action_result {
@@ -435,5 +437,97 @@ pub async fn post_delivery_confirmation(
     match Order::confirm_delivery(&mut con, form.id, date).await {
         Ok(_) => HttpResponse::Created().finish(),
         Err(e) => bad_request(e),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{check_health, DayForm};
+    use crate::{
+        configuration::get_configuration,
+        routes::{get_daily_transformations, get_date, post_date},
+    };
+    use actix_web::{test, web::Data, App};
+
+    #[actix_web::test]
+    async fn test_check_health() {
+        let pool = get_configuration()
+            .expect("Failed to read configuration")
+            .database
+            .create_test_db()
+            .await;
+        let app = test::init_service(
+            App::new().service(check_health).app_data(Data::new(pool)),
+        )
+        .await;
+        let req = test::TestRequest::get().uri("/check_health").to_request();
+        let resp = test::call_service(&app, req).await;
+        assert!(resp.status().is_success());
+    }
+
+    #[actix_web::test]
+    async fn test_get_date() {
+        let pool = get_configuration()
+            .expect("Failed to read configuration")
+            .database
+            .create_test_db()
+            .await;
+        let app = test::init_service(
+            App::new().service(get_date).app_data(Data::new(pool)),
+        )
+        .await;
+        let req = test::TestRequest::get().uri("/date").to_request();
+        let resp = test::call_service(&app, req).await;
+
+        assert!(resp.status().is_success());
+
+        let body = test::read_body(resp).await;
+        serde_json::from_slice::<DayForm>(&body).expect("Invalid JSON");
+    }
+
+    #[actix_web::test]
+    async fn test_post_date() {
+        let pool = get_configuration()
+            .expect("Failed to read configuration")
+            .database
+            .create_test_db()
+            .await;
+        let app = test::init_service(
+            App::new().service(post_date).app_data(Data::new(pool)),
+        )
+        .await;
+        let req = test::TestRequest::post()
+            .uri("/date")
+            .set_form(DayForm { day: 1 })
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert!(resp.status().is_success())
+    }
+
+    #[actix_web::test]
+    async fn test_get_daily_transformations() {
+        let pool = get_configuration()
+            .expect("Failed to read configuration")
+            .database
+            .create_test_db()
+            .await;
+
+        let app = test::init_service(
+            App::new()
+                .service(get_daily_transformations)
+                .app_data(Data::new(pool)),
+        )
+        .await;
+        let req = test::TestRequest::get()
+            .uri("/transformations?day=1")
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        let status = resp.status();
+        if !resp.status().is_success() {
+            let body = test::read_body(resp).await;
+            let body_str =
+                String::from_utf8(body.to_vec()).expect("Invalid UTF-8");
+            panic!("{}: {}", status, body_str);
+        }
     }
 }
