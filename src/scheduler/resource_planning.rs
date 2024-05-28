@@ -134,8 +134,6 @@ pub async fn resolve_material_needs(
         // 1. Get net requirements for the variant by day,
         //    Get under alocated incomming shipments
         //    Get available suppliers
-        //TODO: resolve net requirements for one day at a time, starting from the
-        //earliest day. This will allow for better allocation of shipments
         let qr = query_needed_data(&pool, variant, *day).await?;
         tracing::trace!("{:#?} suppliers: {:?}", variant, qr.suppliers);
         tracing::trace!("Under allocated shipments: {:?}", qr.shipments);

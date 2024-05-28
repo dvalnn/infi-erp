@@ -1,5 +1,7 @@
 use serde::Serialize;
+use sqlx::Acquire;
 use sqlx::PgConnection;
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use super::PieceKind;
@@ -121,6 +123,76 @@ impl Transformation {
         )
         .fetch_one(con)
         .await
+    }
+
+    async fn query_related_upstream(
+        starting_product_id: Uuid,
+        pool: &PgPool,
+    ) -> sqlx::Result<Vec<Self>> {
+        let mut query_id = starting_product_id;
+        let mut found = Vec::new();
+
+        while let Some(related) = sqlx::query_as!(
+            Transformation,
+            "SELECT id, material_id, product_id, recipe_id, date
+            FROM transformations WHERE material_id = $1",
+            query_id
+        )
+        .fetch_optional(pool)
+        .await?
+        {
+            query_id = related.product_id;
+            found.push(related);
+        }
+
+        Ok(found)
+    }
+
+    async fn query_related_downstream(
+        starting_material_id: Uuid,
+        pool: &PgPool,
+    ) -> sqlx::Result<Vec<Self>> {
+        let mut query_id = starting_material_id;
+        let mut found = Vec::new();
+
+        while let Some(related) = sqlx::query_as!(
+            Transformation,
+            "SELECT id, material_id, product_id, recipe_id, date
+            FROM transformations WHERE product_id = $1",
+            query_id
+        )
+        .fetch_optional(pool)
+        .await?
+        {
+            query_id = related.product_id;
+            found.push(related);
+        }
+
+        Ok(found)
+    }
+
+    #[allow(dead_code)]
+    pub async fn get_related(
+        id: i64,
+        pool: &PgPool,
+    ) -> sqlx::Result<Vec<Self>> {
+        let starting_transf = {
+            let mut con = pool.acquire().await?;
+            Self::get_by_id(id, &mut con).await?
+        };
+
+        let upstream =
+            Self::query_related_upstream(starting_transf.product_id, pool)
+                .await?;
+        let downstream =
+            Self::query_related_downstream(starting_transf.material_id, pool)
+                .await?;
+
+        let mut related = Vec::new();
+        related.extend(upstream);
+        related.extend(downstream);
+
+        Ok(related)
     }
 
     pub fn material_id(&self) -> Uuid {

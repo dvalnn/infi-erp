@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, material_id, product_id, recipe_id, date\n            FROM transformations WHERE product_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "material_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "product_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 3,
+        "name": "recipe_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "date",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "2f9f61aa603b233cd31028daaaa3ec32bdda7335cb980694e376d253ac3a3c37"
+}
