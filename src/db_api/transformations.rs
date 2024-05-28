@@ -1,5 +1,4 @@
 use serde::Serialize;
-use sqlx::Acquire;
 use sqlx::PgConnection;
 use sqlx::PgPool;
 use uuid::Uuid;

@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO delivery_statistics\n                (line, piece, quantity, associated_order_id)\n            VALUES ($1, $2, $3, $4)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "delivery_line",
+            "kind": {
+              "Enum": [
+                "DL1",
+                "DL2",
+                "DL3",
+                "DL4"
+              ]
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "piece_kind",
+            "kind": {
+              "Enum": [
+                "P1",
+                "P2",
+                "P3",
+                "P4",
+                "P5",
+                "P6",
+                "P7",
+                "P8",
+                "P9"
+              ]
+            }
+          }
+        },
+        "Int4",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "165f26ea2f3a7964d6bfd3e0168be0c668306ad8ed84cca8d64e8b2ae8542358"
+}

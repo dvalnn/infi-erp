@@ -13,8 +13,8 @@ use sqlx::{postgres::types::PgMoney, PgPool};
 use uuid::Uuid;
 
 use crate::db_api::{
-    self, Item, Order, OrderStatus, RawMaterial, Shipment, Transformation,
-    TransformationDetails,
+    self, DeliveryStatistics, Item, Order, OrderStatus, RawMaterial, Shipment,
+    Transformation, TransformationDetails,
 };
 
 fn internal_server_error(e: impl Debug + Display) -> HttpResponse {
@@ -437,6 +437,22 @@ pub async fn post_delivery_confirmation(
     match Order::confirm_delivery(&mut con, form.id, date).await {
         Ok(_) => HttpResponse::Created().finish(),
         Err(e) => bad_request(e),
+    }
+}
+
+#[post("/deliveries/statistics")]
+pub async fn post_delivery_statistics(
+    form: Form<DeliveryStatistics>,
+    pool: Data<PgPool>,
+) -> impl Responder {
+    let mut con = match pool.acquire().await {
+        Ok(con) => con,
+        Err(e) => return internal_server_error(e),
+    };
+
+    match form.insert(&mut con).await {
+        Ok(_) => HttpResponse::Created().finish(),
+        Err(e) => internal_server_error(e),
     }
 }
 
