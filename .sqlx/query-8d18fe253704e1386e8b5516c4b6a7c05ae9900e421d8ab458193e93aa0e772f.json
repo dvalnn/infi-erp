@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT\n                ship.id,\n                ship.quantity,\n                sup.raw_material_kind as \"material_type: RawMaterial\"\n            FROM shipments AS ship\n            JOIN suppliers AS sup ON ship.supplier_id = sup.id\n            WHERE request_date + delivery_time = $1\n              AND arrival_date IS NULL\n            ",
+  "query": "\n            SELECT\n                ship.id,\n                ship.quantity,\n                sup.raw_material_kind as \"material_type: RawMaterial\"\n            FROM shipments AS ship\n            JOIN suppliers AS sup ON ship.supplier_id = sup.id\n            WHERE request_date + delivery_time <= $1\n              AND arrival_date IS NULL\n            ",
   "describe": {
     "columns": [
       {
@@ -47,5 +47,5 @@
       false
     ]
   },
-  "hash": "0e8d869fa387d0b7b4face618fd35f8c41a671bd5499d79efd24e99fdefc3fd5"
+  "hash": "8d18fe253704e1386e8b5516c4b6a7c05ae9900e421d8ab458193e93aa0e772f"
 }

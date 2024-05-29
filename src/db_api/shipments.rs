@@ -72,42 +72,12 @@ impl Shipment {
                 sup.raw_material_kind as "material_type: RawMaterial"
             FROM shipments AS ship
             JOIN suppliers AS sup ON ship.supplier_id = sup.id
-            WHERE request_date + delivery_time = $1
+            WHERE request_date + delivery_time <= $1
               AND arrival_date IS NULL
             "#,
             date
         )
         .fetch_all(con)
-        .await
-    }
-
-    pub async fn get_existing_shipment(
-        kind: RawMaterial,
-        arrival_date: i32,
-        current_date: i32,
-        con: &mut PgConnection,
-    ) -> sqlx::Result<Option<Shipment>> {
-        sqlx::query_as!(
-            Shipment,
-            r#"
-            SELECT
-                ship.id,
-                ship.supplier_id,
-                ship.request_date,
-                ship.quantity,
-                ship.cost
-            FROM shipments as ship
-            JOIN suppliers as sup ON ship.supplier_id = sup.id
-            WHERE raw_material_kind = $1
-                AND request_date > $2
-                AND request_date + sup.delivery_time = $3
-                AND ship.arrival_date IS NULL
-            "#,
-            kind as RawMaterial,
-            current_date,
-            arrival_date
-        )
-        .fetch_optional(con)
         .await
     }
 
@@ -164,57 +134,8 @@ impl Shipment {
         Ok(id)
     }
 
-    pub async fn update(&self, con: &mut PgConnection) -> sqlx::Result<i64> {
-        let Some(id) = self.id else {
-            tracing::error!("Shipment update failed: id not found");
-            return Err(sqlx::Error::RowNotFound);
-        };
-
-        sqlx::query!(
-            r#"
-            UPDATE shipments
-            SET supplier_id = $1, request_date = $2, quantity = $3, cost = $4
-            WHERE id = $5
-            "#,
-            self.supplier_id,
-            self.request_date,
-            self.quantity,
-            self.cost,
-            id
-        )
-        .execute(con)
-        .await?;
-
-        tracing::info!("Updated shipment with id: {}", id);
-
-        Ok(id)
-    }
-
-    pub async fn upsert(&self, con: &mut PgConnection) -> sqlx::Result<i64> {
-        match self.id.is_some() {
-            true => self.update(con).await,
-            false => self.insert(con).await,
-        }
-    }
-
-    pub fn supplier_id(&self) -> i64 {
-        self.supplier_id
-    }
-
-    pub fn quantity(&self) -> i32 {
-        self.quantity
-    }
-
-    pub fn add_to_quantity(&mut self, ammount: i32) {
-        self.quantity += ammount
-    }
-
     pub fn cost(&self) -> PgMoney {
         self.cost
-    }
-
-    pub fn id(&self) -> Option<i64> {
-        self.id
     }
 }
 
