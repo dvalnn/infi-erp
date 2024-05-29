@@ -52,7 +52,7 @@ async fn resolve_day_needs(
 
     // 5. Insert new shipments into de dabase to get their IDs
     // 6. Link remaining pending items to new purchase orders
-    if let Some(shipment) = pr.purchase_order {
+    let ship_id = if let Some(shipment) = pr.purchase_order {
         let id = shipment.insert(&mut tx).await?;
 
         let items_to_insert = pending
@@ -68,19 +68,24 @@ async fn resolve_day_needs(
                 .any(|i| i.raw_material_id() == p.item_id)
         });
         material_shipments.extend(items_to_insert);
-
-        if material_shipments.is_empty() {
-            tracing::info!("No material shipments to insert");
-            Shipment::delete(id, &mut tx).await?;
-            tx.commit().await?;
-            return Ok(());
-        }
-    }
+        Some(id)
+    } else {
+        None
+    };
 
     // 7. Insert the new populate the material shipments join table
     //    with the new tuples
     for ms in material_shipments {
         ms.insert(&mut tx).await?;
+    }
+
+    // 8. Check if the new shipment has items allocated to it else delete it
+    if let Some(id) = ship_id {
+        let count = MaterialShipment::count_by_shipment_id(id, &mut tx).await?;
+        if count == 0 {
+            Shipment::delete(id, &mut tx).await?;
+            tracing::warn!("Deleted shipment with id: {}", id);
+        }
     }
 
     tx.commit().await?;

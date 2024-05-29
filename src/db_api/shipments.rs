@@ -182,6 +182,27 @@ impl MaterialShipment {
         Ok(())
     }
 
+    pub async fn count_by_shipment_id(
+        id: i64,
+        con: &mut PgConnection,
+    ) -> sqlx::Result<i64> {
+        let count = sqlx::query_scalar!(
+            r#"
+            SELECT COUNT(*)
+            FROM raw_material_shipments
+            WHERE shipment_id = $1
+            "#,
+            id
+        )
+        .fetch_one(con)
+        .await?;
+
+        match count {
+            Some(count) => Ok(count),
+            None => Ok(0),
+        }
+    }
+
     pub fn raw_material_id(&self) -> Uuid {
         self.raw_material_id
     }
