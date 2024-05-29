@@ -9,11 +9,11 @@ CREATE TABLE IF NOT EXISTS shipments (
 
 CREATE FUNCTION shipment_arrived() RETURNS TRIGGER AS $$
 DECLARE item_price money;
-DECLARE item_ids uuid[];
-DECLARE item_id uuid;
-DECLARE new_item_id uuid;
-DECLARE p_kind char(2);
-DECLARE n_missing_items int;
+        item_ids uuid[];
+        item_id uuid;
+        new_item_id uuid;
+        p_kind char(2);
+        n_missing_items int;
   BEGIN
     SELECT unit_price, CAST(raw_material_kind AS char(2))
       INTO item_price, p_kind
@@ -34,8 +34,7 @@ DECLARE n_missing_items int;
       RAISE NOTICE 'Item % arrived', item_id;
       UPDATE items
       SET status = 'in_stock',
-        location = 'W1',
-        acc_cost = item_price
+        location = 'W1'
       WHERE id = item_id;
     END LOOP;
 
@@ -45,8 +44,8 @@ DECLARE n_missing_items int;
       RAISE NOTICE 'Missing items: %', n_missing_items;
       FOR i IN 1..n_missing_items
       LOOP
-        INSERT INTO items (piece_kind, status, location, acc_cost)
-        VALUES (CAST(p_kind AS piece_kind), 'in_stock', 'W1', item_price)
+        INSERT INTO items (piece_kind, status, location)
+        VALUES (CAST(p_kind AS piece_kind), 'in_stock', 'W1')
         RETURNING id INTO new_item_id;
       END LOOP;
 
