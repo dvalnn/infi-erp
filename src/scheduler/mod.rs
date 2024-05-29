@@ -75,7 +75,7 @@ impl Scheduler {
         // Assume that the factory can handle 3 blueprints in parallel at most
         const PARALLELISM_CAPACITY: i64 = 3;
         // assume a % of the needed time is spent on logistics instead of production
-        const LOGISTICS_TIME_FACTOR: i64 = 25;
+        const LOGISTICS_TIME_FACTOR: i64 = 50;
 
         // the last day that the order can be completed in order to be able to
         // be delivered on time
