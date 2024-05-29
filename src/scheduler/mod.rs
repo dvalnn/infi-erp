@@ -48,24 +48,15 @@ impl Scheduler {
         let current_date = {
             let mut con = pool.acquire().await?;
             db_api::get_date(&mut con).await?
-        };
+        } as i64;
+        // earliest start is the next day so that materials can be prepared
+        let earliest_start = current_date + 1;
 
-        let blueprints = order_items
+        let mut blueprints = order_items
             .iter()
             .filter_map(|item| {
-                let mut bp = match ItemBlueprint::generate(
-                    (*item).clone(),
-                    &full_recipe,
-                ) {
-                    Ok(bp) => bp,
-                    Err(e) => {
-                        tracing::error!("{:?}", e);
-                        return None;
-                    }
-                };
-
-                match bp.schedule(order.due_date(), current_date as i32) {
-                    Ok(_) => Some(bp),
+                match ItemBlueprint::generate((*item).clone(), &full_recipe) {
+                    Ok(bp) => Some(bp),
                     Err(e) => {
                         tracing::error!("{:?}", e);
                         None
@@ -73,15 +64,36 @@ impl Scheduler {
                 }
             })
             .collect::<Vec<_>>();
+        assert_eq!(order_items.len(), blueprints.len());
 
-        if blueprints.len() < order.quantity() as usize {
-            anyhow::bail!(
-                "Cannot fullfill order {:?}, can only schedule {:?}/{:?} parts",
-                order.id(),
-                blueprints.len(),
-                order.quantity()
+        //TODO: schedule the blueprints for production taking into account
+        //maximum factory parallelism capacity
+        let bp_time: i64 = full_recipe.iter().map(|r| r.operation_time).sum();
+
+        //TODO: make these constants config parameteres
+        //
+        // Assume that the factory can handle 3 blueprints in parallel at most
+        const PARALLELISM_CAPACITY: i64 = 3;
+        // assume a % of the needed time is spent on logistics instead of production
+        const LOGISTICS_TIME_FACTOR: i64 = 25;
+
+        // the last day that the order can be completed in order to be able to
+        // be delivered on time
+        let completion_date = order.due_date() as i64 - 1;
+        let bp_time = bp_time + bp_time * LOGISTICS_TIME_FACTOR / 100;
+        let total_time = bp_time * order.quantity() as i64;
+        let days_needed = total_time / (TIME_IN_DAY * PARALLELISM_CAPACITY);
+        if days_needed > completion_date - earliest_start {
+            tracing::warn!(
+                "Order {} cannot be completed on time, not enough capacity",
+                order.id()
             );
         }
+
+        let starting_date = earliest_start.max(completion_date - days_needed);
+        blueprints
+            .iter_mut()
+            .for_each(|bp| bp.set_start(starting_date));
 
         let mut tx = pool.begin().await?;
         for mut bp in blueprints {
