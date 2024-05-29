@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS orders (
   client_id uuid NOT NULL REFERENCES clients(id),
   number int NOT NULL CHECK (number> 0),
   piece piece_kind NOT NULL REFERENCES pieces(code),
-  quantity int NOT NULL CHECK (quantity > 0),
+  quantity int NOT NULL CHECK (quantity > 0 AND quantity <= 24),
   due_date int NOT NULL CHECK (due_date > 0),
   late_penalty money NOT NULL,
   early_penalty money NOT NULL,
