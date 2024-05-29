@@ -29,15 +29,15 @@ DECLARE item_price money;
         ON rs.shipment_id = s.id
     WHERE s.id = NEW.id;
 
-    FOREACH item_id IN ARRAY item_ids
-    LOOP
-      RAISE NOTICE 'Item % arrived', item_id;
-      UPDATE items
-      SET status = 'in_stock',
-        location = 'W1'
-      WHERE id = item_id;
-    END LOOP;
-
+    IF array_length(item_ids, 1) > 0 THEN
+      FOREACH item_id IN ARRAY item_ids LOOP
+        RAISE NOTICE 'Item % arrived', item_id;
+        UPDATE items
+        SET status = 'in_stock',
+          location = 'W1'
+        WHERE id = item_id;
+      END LOOP;
+    END IF;
 
     SELECT NEW.quantity - array_length(item_ids, 1) INTO n_missing_items;
     IF n_missing_items > 0 THEN

@@ -43,6 +43,14 @@ impl Shipment {
         }
     }
 
+    pub async fn delete(id: i64, con: &mut PgConnection) -> sqlx::Result<()> {
+        sqlx::query!(r#"DELETE FROM shipments WHERE shipments.id = $1"#, id)
+            .execute(con)
+            .await?;
+
+        Ok(())
+    }
+
     pub async fn arrived(id: i64, date: i32, con: &PgPool) -> sqlx::Result<()> {
         sqlx::query!(
             r#"

@@ -68,6 +68,13 @@ async fn resolve_day_needs(
                 .any(|i| i.raw_material_id() == p.item_id)
         });
         material_shipments.extend(items_to_insert);
+
+        if material_shipments.is_empty() {
+            tracing::info!("No material shipments to insert");
+            Shipment::delete(id, &mut tx).await?;
+            tx.commit().await?;
+            return Ok(());
+        }
     }
 
     // 7. Insert the new populate the material shipments join table
