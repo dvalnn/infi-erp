@@ -158,30 +158,6 @@ impl Item {
         .await
     }
 
-    pub async fn current_stock(
-        con: &mut sqlx::PgConnection,
-    ) -> sqlx::Result<i64> {
-        let row = sqlx::query!(
-            r#"
-            SELECT COUNT(*) as quantity
-            FROM items
-            WHERE items.status = $1
-            "#,
-            ItemStatus::InStock as ItemStatus,
-        )
-        .fetch_one(con)
-        .await?;
-        Ok(row.quantity.unwrap_or(0))
-    }
-
-    pub async fn get_stock_prevision(
-        _day: i32,
-        _con: &mut sqlx::PgConnection,
-    ) -> sqlx::Result<i64> {
-        //TODO: total stock prevision for day is current stock + arrivals - departures
-        todo!()
-    }
-
     pub async fn update(
         &self,
         con: &mut sqlx::PgConnection,
