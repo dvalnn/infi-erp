@@ -10,7 +10,7 @@ use super::ItemStatus;
 
 #[subenum(FinalPiece, InterPiece, RawMaterial(derive(Sequence)))]
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type,
+    Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, sqlx::Type,
 )]
 #[sqlx(type_name = "piece_kind")]
 pub enum PieceKind {
