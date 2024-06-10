@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE items\n            SET\n                order_id = $1,\n                location = $2,\n                status = $3,\n                acc_cost = $4\n            WHERE id = $5",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bpchar",
+        {
+          "Custom": {
+            "name": "item_status",
+            "kind": {
+              "Enum": [
+                "pending",
+                "in_transit",
+                "in_stock",
+                "delivered",
+                "consumed"
+              ]
+            }
+          }
+        },
+        "Money",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1cd7318a26a45b9431c4e3d61815c24be34c376a0b15ed1cd59dd3031a0b4cce"
+}

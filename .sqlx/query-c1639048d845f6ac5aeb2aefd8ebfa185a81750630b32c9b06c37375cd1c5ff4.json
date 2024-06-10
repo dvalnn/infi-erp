@@ -1,0 +1,92 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n\n            t.id as transformation_id,\n            t.material_id,\n            t.product_id,\n\n            recipes.material_kind as \"material_kind: PieceKind\",\n            recipes.product_kind as \"product_kind: PieceKind\",\n            recipes.tool as \"tool: ToolType\",\n            recipes.operation_time\n\n            FROM transformations AS t\n\n            JOIN recipes ON t.recipe_id = recipes.id\n\n            WHERE t.material_id = $1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "transformation_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "material_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "product_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 3,
+        "name": "material_kind: PieceKind",
+        "type_info": {
+          "Custom": {
+            "name": "piece_kind",
+            "kind": {
+              "Enum": [
+                "P1",
+                "P2",
+                "P3",
+                "P4",
+                "P5",
+                "P6",
+                "P7",
+                "P8",
+                "P9"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "product_kind: PieceKind",
+        "type_info": {
+          "Custom": {
+            "name": "piece_kind",
+            "kind": {
+              "Enum": [
+                "P1",
+                "P2",
+                "P3",
+                "P4",
+                "P5",
+                "P6",
+                "P7",
+                "P8",
+                "P9"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "tool: ToolType",
+        "type_info": "Bpchar"
+      },
+      {
+        "ordinal": 6,
+        "name": "operation_time",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "c1639048d845f6ac5aeb2aefd8ebfa185a81750630b32c9b06c37375cd1c5ff4"
+}
